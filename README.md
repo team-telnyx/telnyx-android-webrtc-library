@@ -1,16 +1,39 @@
 # Telnyx Android WebRTC Library
-[![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android-library.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android-library)
-
 
 🛰️ Telnyx WebRTC Android is Google's WebRTC pre-compiled library for Android by :telephone_receiver: :fire:
 
-### Gradle
+## Installation
 
-Add the below dependency to your **module**'s `build.gradle` file:
+### Maven Central (Recommended)
+
+The library is available on Maven Central. Add the below dependency to your **module**'s `build.gradle` file:
 
 ```kotlin
 dependencies {
     implementation("com.telnyx.webrtc.lib:library:1.0.0")
+}
+```
+
+### JitPack (Legacy)
+
+[![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android-library.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android-library)
+
+If you prefer using JitPack, add the JitPack repository to your root `build.gradle` file:
+
+```kotlin
+allprojects {
+    repositories {
+        // ...
+        maven { url = uri("https://jitpack.io") }
+    }
+}
+```
+
+Then add the dependency:
+
+```kotlin
+dependencies {
+    implementation("com.github.team-telnyx:telnyx-webrtc-android-library:1.0.0")
 }
 ```
 
@@ -21,6 +44,29 @@ You can use this repo to build WebRTC library from our sources:
 - Clone repository to your disk
 - Use command `./gradlew buildAarLib`
 - Library will be placed in folder `lib`
+
+### Publishing to Maven Central
+
+To publish the library to Maven Central:
+
+1. Copy `local.properties.template` to `local.properties` and fill in your Sonatype OSSRH credentials and GPG signing information:
+   ```properties
+   # Maven Central (Sonatype OSSRH) credentials
+   ossrhUsername=your_sonatype_username
+   ossrhPassword=your_sonatype_password
+
+   # GPG Signing information for Maven Central
+   signing.keyId=your_gpg_key_id_last_8_chars
+   signing.password=your_gpg_key_password
+   signing.key=your_gpg_secret_key_content_in_ascii_armored_format
+   ```
+
+2. Run the publishing task:
+   ```bash
+   ./gradlew publishToMavenCentral
+   ```
+
+3. Log in to [Sonatype OSSRH](https://oss.sonatype.org/) to release the staged repository.
 
 ### Compile your own version of Google's WebRTC
 
@@ -50,7 +96,7 @@ To avoid this, you will have to change name of the package in Google sources. Le
         ```
         import org.webrtc.NetworkPreference;
         ```
-	    - in file `sdk/android/api/com/example/RtpParameters.java` add line:
+            - in file `sdk/android/api/com/example/RtpParameters.java` add line:
         ```
         import org.webrtc.Priority
         ```
