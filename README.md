@@ -2,7 +2,27 @@
 [![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android-library.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android-library)
 
 
-🛰️ Telnyx WebRTC Android is Google's WebRTC pre-compiled library for Android by :telephone_receiver: :fire:
+🛰️ Telnyx WebRTC Android is Google's WebRTC pre-compiled library for Android by Telnyx :telephone_receiver: :fire:
+
+## What is this library?
+
+This is a pre-compiled version of Google's WebRTC library for Android, maintained by Telnyx. It serves as the foundation for the [Telnyx Android Voice SDK](https://github.com/team-telnyx/telnyx-webrtc-android).
+
+For more information about WebRTC for Android, you can also refer to the [WebRTC-Android documentation](https://getstream.github.io/webrtc-android/).
+
+## What this library is NOT
+
+This is NOT the Telnyx Android Voice SDK ([https://github.com/team-telnyx/telnyx-webrtc-android](https://github.com/team-telnyx/telnyx-webrtc-android)). It is Google's WebRTC pre-compiled library for Android by Telnyx. The Telnyx Android Voice SDK is built on top of this library.
+
+### Using the Telnyx Android Voice SDK
+
+If you're looking to integrate Telnyx's voice calling capabilities into your Android application, you should use the [Telnyx Android Voice SDK](https://github.com/team-telnyx/telnyx-webrtc-android) instead of this library directly. The Voice SDK provides a higher-level API that makes it easy to implement voice calling features in your application.
+
+To use the Telnyx Android Voice SDK, follow the instructions in the [SDK repository](https://github.com/team-telnyx/telnyx-webrtc-android).
+
+## Getting Started with Telnyx
+
+To use Telnyx services, you'll need to [sign up for a Telnyx account](https://telnyx.com/sign-up).
 
 ### Gradle
 
@@ -24,12 +44,12 @@ You can use this repo to build WebRTC library from our sources:
 
 ### Compile your own version of Google's WebRTC
 
-Thanks to [Stream](https://getstream.io?utm_source=Github&utm_medium=Jaewoong_OSS&utm_content=Developer&utm_campaign=Github_Feb2023_Jaewoong_StreamWebRTCAndroid&utm_term=DevRelOss) everybody can make his own WebRTC library. Just follow instructions placed [here](https://getstream.io/resources/projects/webrtc/library/android/). However, it's possible that in final solution developer will have to use this new generated library, as weel, as already existed WebRTC library, pre-compiled from this same Google's sources. This will leads to conflict, because both libraries will use this same packages `org.webrtc`
+You can compile your own version of the WebRTC library from Google's sources. However, it's possible that in your final solution, you will have to use this newly generated library alongside an existing WebRTC library pre-compiled from the same Google sources. This will lead to conflicts because both libraries will use the same package `org.webrtc`
 
 To avoid this, you will have to change name of the package in Google sources. Let's say that instead of package `org.webrtc` you would like to have it as `com.example`. Here is short description how to do it:
 
-- Follow instructions described [here](https://getstream.io/resources/projects/webrtc/library/android/)
-- Go to `webrtc_android\src` and change name of package in follwoing places:
+- Follow the official WebRTC build instructions for Android from the [WebRTC development documentation](https://webrtc.github.io/webrtc-org/native-code/android/)
+- Go to `webrtc_android\src` and change name of package in following places:
     1. in `sdk/android/src` and `sdk/android/api` change names of packages and imports. You can do it by following commands:
     ```
     find . -name "*.java" -exec sed -i 's/^package org\.webrtc;/package com.example;/g' {} +
@@ -50,7 +70,7 @@ To avoid this, you will have to change name of the package in Google sources. Le
         ```
         import org.webrtc.NetworkPreference;
         ```
-	    - in file `sdk/android/api/com/example/RtpParameters.java` add line:
+            - in file `sdk/android/api/com/example/RtpParameters.java` add line:
         ```
         import org.webrtc.Priority
         ```
