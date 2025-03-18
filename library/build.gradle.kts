@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.library)
     id("maven-publish")
@@ -10,12 +13,41 @@ val getVersionName = {
 
 // Function to read properties from local.properties file
 fun getLocalProperty(key: String, defaultValue: String = ""): String {
-    val properties = java.util.Properties()
+    val properties = Properties()
     val localProperties = file("${project.rootDir}/local.properties")
     if (localProperties.exists()) {
-        properties.load(java.io.FileInputStream(localProperties))
+        properties.load(FileInputStream(localProperties))
     }
     return properties.getProperty(key, defaultValue)
+}
+
+// main task to build library
+tasks.register<Copy>("buildAarLib") {
+    dependsOn("assembleRelease")
+
+    val buildDirPath = "$buildDir/outputs/aar"
+    val outputDir = file("$rootDir/lib")
+    val outputFileName = "telnyx-webrtc-android-library-release-${getVersionName()}.aar"
+
+    from(file("$buildDirPath/library-release.aar"))
+    into(outputDir)
+    rename { outputFileName }
+}
+
+// Task to publish to Maven Central
+tasks.register("publishToMavenCentral") {
+    description = "Publishes the library to Maven Central repository"
+    group = "publishing"
+
+    dependsOn("assembleRelease")
+    dependsOn("publishReleasePublicationToMavenCentralRepository")
+
+    doLast {
+        println("Library successfully published to Maven Central")
+        println("Group: com.telnyx.webrtc.lib")
+        println("Artifact: library")
+        println("Version: ${getVersionName()}")
+    }
 }
 
 // Maven publishing configuration
@@ -82,12 +114,16 @@ publishing {
 // Signing configuration for Maven Central
 signing {
     val signingKeyId = getLocalProperty("signing.keyId")
-    val signingKey = getLocalProperty("signing.key")
+    val signingKey = getLocalProperty("signing.key").replace("\\n", "\n")
     val signingPassword = getLocalProperty("signing.password")
     
     if (signingKeyId.isNotEmpty() && signingKey.isNotEmpty() && signingPassword.isNotEmpty()) {
         useInMemoryPgpKeys(signingKeyId, signingKey, signingPassword)
         sign(publishing.publications["release"])
+    }
+
+    tasks.named("signReleasePublication") {
+        dependsOn(tasks.named("buildAarLib"))
     }
 }
 
@@ -124,35 +160,6 @@ android {
         getByName("main") {
             jniLibs.srcDir("webrtc_libs")
         }
-    }
-}
-
-// main task to build library
-tasks.register<Copy>("buildAarLib") {
-    dependsOn("assembleRelease")
-
-    val buildDirPath = "$buildDir/outputs/aar"
-    val outputDir = file("$rootDir/lib")
-    val outputFileName = "telnyx-webrtc-android-library-release-${getVersionName()}.aar"
-
-    from(file("$buildDirPath/library-release.aar"))
-    into(outputDir)
-    rename { outputFileName }
-}
-
-// Task to publish to Maven Central
-tasks.register("publishToMavenCentral") {
-    description = "Publishes the library to Maven Central repository"
-    group = "publishing"
-    
-    dependsOn("assembleRelease")
-    dependsOn("publishReleasePublicationToMavenCentralRepository")
-    
-    doLast {
-        println("Library successfully published to Maven Central")
-        println("Group: com.telnyx.webrtc.lib")
-        println("Artifact: library")
-        println("Version: ${getVersionName()}")
     }
 }
 
