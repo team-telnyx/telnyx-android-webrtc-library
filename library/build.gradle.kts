@@ -42,7 +42,9 @@ tasks.register("generateJavadoc", Javadoc::class) {
     description = "Generates Javadoc for the project"
     group = "documentation"
     
-    source = android.sourceSets.getByName("main").java.srcDirs
+    // Use a simpler approach for source files
+    source(android.sourceSets.getByName("main").java.srcDirs)
+    
     classpath += project.files(android.bootClasspath)
     android.libraryVariants.forEach { variant ->
         if (variant.name == "release") {
@@ -60,10 +62,9 @@ tasks.register("generateJavadoc", Javadoc::class) {
         addStringOption("charSet", "UTF-8")
         links("https://docs.oracle.com/javase/8/docs/api/")
         links("https://developer.android.com/reference/")
+        // Set failOnError through options
+        isFailOnError = false
     }
-    
-    // Fail on Javadoc errors
-    failOnError = false
 }
 
 // Task to generate Javadoc and sources JARs
@@ -102,6 +103,12 @@ tasks.register("publishToMavenCentral") {
         println("To use this library in your project, add the following dependency:")
         println("implementation 'com.telnyx.webrtc.lib:library:${getVersionName()}'")
     }
+}
+
+// Fix task dependencies for signing
+tasks.withType<Sign>().configureEach {
+    // Ensure bundleReleaseAar task runs before signing
+    dependsOn("bundleReleaseAar")
 }
 
 // Maven publishing configuration
