@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.android.library)
     id("maven-publish")
     id("signing")
+    id("org.jetbrains.dokka") version "1.9.10" apply false
 }
 
 val getVersionName = {
@@ -34,13 +35,24 @@ tasks.register<Copy>("buildAarLib") {
     rename { outputFileName }
 }
 
+// Task to generate Javadoc and sources JARs
+tasks.register<Jar>("javadocJar") {
+    archiveClassifier.set("javadoc")
+    from(file("$buildDir/docs/javadoc"))
+}
+
+tasks.register<Jar>("sourcesJar") {
+    archiveClassifier.set("sources")
+    from(android.sourceSets.getByName("main").java.srcDirs)
+}
+
 // Task to publish to Maven Central
 tasks.register("publishToMavenCentral") {
     description = "Publishes the library to Maven Central repository"
     group = "publishing"
 
     dependsOn("assembleRelease")
-    dependsOn("publishReleasePublicationToMavenCentralRepository")
+    dependsOn("publishReleasePublicationToSonatypeRepository")
 
     doLast {
         println("Library successfully published to Maven Central")
@@ -54,12 +66,16 @@ tasks.register("publishToMavenCentral") {
 publishing {
     publications {
         create<MavenPublication>("release") {
-            group = "com.telnyx.webrtc.lib"
+            groupId = "com.telnyx.webrtc.lib"
             artifactId = "library"
             version = getVersionName()
 
             // Use the release AAR file
             artifact("$buildDir/outputs/aar/library-release.aar")
+            
+            // Add sources and javadoc artifacts
+            artifact(tasks["javadocJar"])
+            artifact(tasks["sourcesJar"])
 
             // Add POM information required by Maven Central
             pom {
@@ -98,11 +114,13 @@ publishing {
             url = uri("$buildDir/repo")
         }
         
-        // Maven Central repository (new)
+        // Maven Central repository using Sonatype OSSRH
         maven {
-            name = "mavenCentral"
-            url = uri("https://oss.sonatype.org/service/local/staging/deploy/maven2/")
-            
+            name = "sonatype"
+            val releasesRepoUrl = uri("https://oss.sonatype.org/service/local/staging/deploy/maven2/")
+            val snapshotsRepoUrl = uri("https://oss.sonatype.org/content/repositories/snapshots/")
+            url = if (getVersionName().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
+
             credentials {
                 username = getLocalProperty("ossrhUsername")
                 password = getLocalProperty("ossrhPassword")
@@ -120,11 +138,16 @@ signing {
     if (signingKeyId.isNotEmpty() && signingKey.isNotEmpty() && signingPassword.isNotEmpty()) {
         useInMemoryPgpKeys(signingKeyId, signingKey, signingPassword)
         sign(publishing.publications["release"])
+    } else {
+        // Fallback to using gpg command line tool
+        useGpgCmd()
+        sign(publishing.publications["release"])
     }
+}
 
-    tasks.named("signReleasePublication") {
-        dependsOn(tasks.named("buildAarLib"))
-    }
+// Make sure signing happens before publishing
+tasks.withType<AbstractPublishToMaven>().configureEach {
+    dependsOn(tasks.withType<Sign>())
 }
 
 android {
