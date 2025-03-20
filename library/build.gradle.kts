@@ -105,6 +105,96 @@ tasks.register("publishToMavenCentral") {
     }
 }
 
+// Task to prepare a zip file for manual publishing to Maven Central
+tasks.register("prepareManualPublishZip") {
+    description = "Prepares a zip file for manual publishing to Maven Central"
+    group = "publishing"
+
+    dependsOn("assembleRelease")
+    dependsOn("javadocJar")
+    dependsOn("sourcesJar")
+    dependsOn("signReleasePublication")
+
+    doLast {
+        // Create the directory structure following Maven repository layout
+        val groupIdPath = "com/telnyx/webrtc/lib"
+        val artifactId = "library"
+        val version = getVersionName()
+        val publishDir = file("${rootDir}/publish")
+        val mavenDir = file("${publishDir}/${groupIdPath}/${artifactId}/${version}")
+        
+        // Create directories
+        mavenDir.mkdirs()
+        
+        // Define file names
+        val aarName = "${artifactId}-${version}"
+        val pomName = "${aarName}.pom"
+        val javadocName = "${aarName}-javadoc.jar"
+        val sourcesName = "${aarName}-sources.jar"
+        
+        // Copy and sign the AAR file
+        copy {
+            from("${buildDir}/outputs/aar/${artifactId}-release.aar")
+            into(mavenDir)
+            rename { "${aarName}.aar" }
+        }
+        
+        // Copy the POM file
+        copy {
+            from("${buildDir}/publications/release/pom-default.xml")
+            into(mavenDir)
+            rename { pomName }
+        }
+        
+        // Copy Javadoc JAR
+        copy {
+            from("${buildDir}/libs/${artifactId}-${version}-javadoc.jar")
+            into(mavenDir)
+            rename { javadocName }
+        }
+        
+        // Copy Sources JAR
+        copy {
+            from("${buildDir}/libs/${artifactId}-${version}-sources.jar")
+            into(mavenDir)
+            rename { sourcesName }
+        }
+        
+        // Copy signature files
+        copy {
+            from("${buildDir}/libs")
+            into(mavenDir)
+            include("*.asc")
+        }
+        
+        // Generate MD5 and SHA1 checksums
+        fileTree(mavenDir).forEach { file ->
+            if (!file.name.endsWith(".md5") && !file.name.endsWith(".sha1") && !file.name.endsWith(".asc")) {
+                // Generate MD5
+                ant.withGroovyBuilder {
+                    "checksum"("file" to file.absolutePath, "algorithm" to "MD5", "fileext" to ".md5")
+                }
+                
+                // Generate SHA1
+                ant.withGroovyBuilder {
+                    "checksum"("file" to file.absolutePath, "algorithm" to "SHA1", "fileext" to ".sha1")
+                }
+            }
+        }
+        
+        // Create a zip file
+        ant.withGroovyBuilder {
+            "zip"("destfile" to "${publishDir}/maven-central-bundle.zip", "basedir" to publishDir, "includes" to "${groupIdPath}/**")
+        }
+        
+        println("Manual publishing bundle created at: ${publishDir}/maven-central-bundle.zip")
+        println("To publish to Maven Central:")
+        println("1. Go to https://central.sonatype.org/")
+        println("2. Click on 'Publish Component'")
+        println("3. Upload the zip file: ${publishDir}/maven-central-bundle.zip")
+    }
+}
+
 // Fix task dependencies for signing
 tasks.withType<Sign>().configureEach {
     // Ensure bundleReleaseAar task runs before signing

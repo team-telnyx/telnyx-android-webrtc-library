@@ -47,7 +47,9 @@ You can use this repo to build WebRTC library from our sources:
 
 ### Publishing to Maven Central
 
-To publish the library to Maven Central:
+There are two ways to publish the library to Maven Central:
+
+#### Option 1: Automated Publishing via Gradle
 
 1. Copy `local.properties.template` to `local.properties` and fill in your Sonatype OSSRH credentials and GPG signing information:
    ```properties
@@ -77,6 +79,31 @@ To publish the library to Maven Central:
    ```
 
 5. Log in to [Sonatype OSSRH](https://s01.oss.sonatype.org/) to monitor the staged repository.
+
+#### Option 2: Manual Publishing via Central Portal Upload
+
+If you prefer to manually upload the bundle to Maven Central:
+
+1. Copy `local.properties.template` to `local.properties` and fill in your GPG signing information:
+   ```properties
+   # GPG Signing information for Maven Central
+   signing.keyId=your_gpg_key_id_last_8_chars
+   signing.password=your_gpg_key_password
+   signing.key=your_gpg_secret_key_content_in_ascii_armored_format
+   ```
+
+2. Run the task to prepare the zip file for manual publishing:
+   ```bash
+   ./gradlew prepareManualPublishZip
+   ```
+
+3. This will create a zip file in the `publish` directory with the proper Maven repository layout structure.
+
+4. Go to [Central Publisher Portal](https://central.sonatype.org/) and click on "Publish Component".
+
+5. Enter a deployment name (e.g., "com.telnyx.webrtc.lib:library:1.0.0") and upload the zip file.
+
+6. Follow the instructions on the portal to complete the publishing process.
 
 #### Alternative: Step-by-Step Publishing
 
