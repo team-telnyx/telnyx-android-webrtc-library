@@ -1,11 +1,13 @@
 import java.io.FileInputStream
 import java.util.Properties
+import org.gradle.api.publish.maven.tasks.AbstractPublishToMaven
+import org.gradle.plugins.signing.Sign
 
 plugins {
     alias(libs.plugins.android.library)
     id("maven-publish")
     id("signing")
-    id("org.jetbrains.dokka") version "1.9.10" apply false
+    id("org.jetbrains.dokka") version "1.9.10"
 }
 
 val getVersionName = {
@@ -35,13 +37,49 @@ tasks.register<Copy>("buildAarLib") {
     rename { outputFileName }
 }
 
+// Generate Javadoc
+tasks.register("generateJavadoc", Javadoc::class) {
+    description = "Generates Javadoc for the project"
+    group = "documentation"
+    
+    source = android.sourceSets.getByName("main").java.srcDirs
+    classpath += project.files(android.bootClasspath)
+    android.libraryVariants.forEach { variant ->
+        if (variant.name == "release") {
+            classpath += variant.javaCompileProvider.get().classpath
+        }
+    }
+    
+    // Exclude generated files
+    exclude("**/R.java", "**/BuildConfig.java")
+    
+    // Javadoc options
+    (options as StandardJavadocDocletOptions).apply {
+        addStringOption("Xdoclint:none", "-quiet")
+        addStringOption("encoding", "UTF-8")
+        addStringOption("charSet", "UTF-8")
+        links("https://docs.oracle.com/javase/8/docs/api/")
+        links("https://developer.android.com/reference/")
+    }
+    
+    // Fail on Javadoc errors
+    failOnError = false
+}
+
 // Task to generate Javadoc and sources JARs
 tasks.register<Jar>("javadocJar") {
+    description = "Creates a JAR with the Javadoc for the project"
+    group = "documentation"
+    
+    dependsOn("generateJavadoc")
     archiveClassifier.set("javadoc")
-    from(file("$buildDir/docs/javadoc"))
+    from(tasks.named("generateJavadoc"))
 }
 
 tasks.register<Jar>("sourcesJar") {
+    description = "Creates a JAR with the source code of the project"
+    group = "documentation"
+    
     archiveClassifier.set("sources")
     from(android.sourceSets.getByName("main").java.srcDirs)
 }
@@ -52,6 +90,8 @@ tasks.register("publishToMavenCentral") {
     group = "publishing"
 
     dependsOn("assembleRelease")
+    dependsOn("javadocJar")
+    dependsOn("sourcesJar")
     dependsOn("publishReleasePublicationToSonatypeRepository")
 
     doLast {
@@ -59,6 +99,8 @@ tasks.register("publishToMavenCentral") {
         println("Group: com.telnyx.webrtc.lib")
         println("Artifact: library")
         println("Version: ${getVersionName()}")
+        println("To use this library in your project, add the following dependency:")
+        println("implementation 'com.telnyx.webrtc.lib:library:${getVersionName()}'")
     }
 }
 
@@ -117,8 +159,9 @@ publishing {
         // Maven Central repository using Sonatype OSSRH
         maven {
             name = "sonatype"
-            val releasesRepoUrl = uri("https://oss.sonatype.org/service/local/staging/deploy/maven2/")
-            val snapshotsRepoUrl = uri("https://oss.sonatype.org/content/repositories/snapshots/")
+            // Use the newer s01 URLs as recommended by Sonatype
+            val releasesRepoUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
+            val snapshotsRepoUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
             url = if (getVersionName().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
 
             credentials {
@@ -131,23 +174,34 @@ publishing {
 
 // Signing configuration for Maven Central
 signing {
+    // Only sign release builds
+    setRequired({ gradle.taskGraph.hasTask("publishReleasePublicationToSonatypeRepository") })
+    
     val signingKeyId = getLocalProperty("signing.keyId")
     val signingKey = getLocalProperty("signing.key").replace("\\n", "\n")
     val signingPassword = getLocalProperty("signing.password")
-    
+
     if (signingKeyId.isNotEmpty() && signingKey.isNotEmpty() && signingPassword.isNotEmpty()) {
+        // Use in-memory PGP keys if provided in local.properties
         useInMemoryPgpKeys(signingKeyId, signingKey, signingPassword)
-        sign(publishing.publications["release"])
     } else {
         // Fallback to using gpg command line tool
         useGpgCmd()
-        sign(publishing.publications["release"])
     }
+    
+    // Sign all publications
+    sign(publishing.publications["release"])
 }
 
 // Make sure signing happens before publishing
 tasks.withType<AbstractPublishToMaven>().configureEach {
     dependsOn(tasks.withType<Sign>())
+}
+
+// Make sure Javadoc and sources JARs are generated before signing
+tasks.withType<Sign>().configureEach {
+    dependsOn(tasks.named("javadocJar"))
+    dependsOn(tasks.named("sourcesJar"))
 }
 
 android {

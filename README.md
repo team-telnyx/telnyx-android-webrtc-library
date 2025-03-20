@@ -61,12 +61,40 @@ To publish the library to Maven Central:
    signing.key=your_gpg_secret_key_content_in_ascii_armored_format
    ```
 
-2. Run the publishing task:
+2. Generate the library AAR file:
+   ```bash
+   ./gradlew buildAarLib
+   ```
+
+3. Generate Javadoc and sources JARs (required by Maven Central):
+   ```bash
+   ./gradlew javadocJar sourcesJar
+   ```
+
+4. Run the publishing task:
    ```bash
    ./gradlew publishToMavenCentral
    ```
 
-3. Log in to [Sonatype OSSRH](https://oss.sonatype.org/) to release the staged repository.
+5. Log in to [Sonatype OSSRH](https://s01.oss.sonatype.org/) to monitor the staged repository.
+
+#### Alternative: Step-by-Step Publishing
+
+If you prefer more control over the publishing process:
+
+1. Build the library and stage artifacts locally:
+   ```bash
+   ./gradlew clean buildAarLib javadocJar sourcesJar publishReleasePublicationToLocalRepoRepository
+   ```
+
+2. Verify the staged artifacts in the `build/repo` directory.
+
+3. Publish to Sonatype OSSRH:
+   ```bash
+   ./gradlew publishReleasePublicationToSonatypeRepository
+   ```
+
+4. Close and release the repository on [Sonatype OSSRH](https://s01.oss.sonatype.org/).
 
 ### Compile your own version of Google's WebRTC
 
