@@ -10,7 +10,7 @@ plugins {
 }
 
 val getVersionName = {
-    "1.0.0"
+    "1.0.1"
 }
 
 // Function to read properties from local.properties file
@@ -181,6 +181,7 @@ tasks.register("prepareManualPublishZip") {
                   <groupId>${groupId}</groupId>
                   <artifactId>${artifactId}</artifactId>
                   <version>${version}</version>
+                  <packaging>aar</packaging>
                   <name>Telnyx WebRTC Android Library</name>
                   <description>Android WebRTC library for Telnyx services</description>
                   <url>https://github.com/team-telnyx/telnyx-android-webrtc-library</url>
