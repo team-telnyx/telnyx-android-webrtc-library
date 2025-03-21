@@ -216,6 +216,25 @@ tasks.register("prepareManualPublishZip") {
                   <version>${version}</version>
                   <name>Telnyx WebRTC Android Library</name>
                   <description>Android WebRTC library for Telnyx services</description>
+                  <url>https://github.com/team-telnyx/telnyx-android-webrtc-library</url>
+                  <licenses>
+                    <license>
+                      <name>MIT License</name>
+                      <url>https://opensource.org/licenses/MIT</url>
+                    </license>
+                  </licenses>
+                  <developers>
+                    <developer>
+                      <id>telnyx</id>
+                      <name>Telnyx</name>
+                      <email>support@telnyx.com</email>
+                    </developer>
+                  </developers>
+                  <scm>
+                    <connection>scm:git:git://github.com/team-telnyx/telnyx-android-webrtc-library.git</connection>
+                    <developerConnection>scm:git:ssh://github.com:team-telnyx/telnyx-android-webrtc-library.git</developerConnection>
+                    <url>https://github.com/team-telnyx/telnyx-android-webrtc-library</url>
+                  </scm>
                 </project>
             """.trimIndent()
             file("${versionDir}/${pomName}").writeText(dummyPom)
