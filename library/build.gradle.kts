@@ -1,5 +1,6 @@
 import java.io.FileInputStream
 import java.util.Properties
+import java.util.Date
 import org.gradle.api.publish.maven.tasks.AbstractPublishToMaven
 import org.gradle.plugins.signing.Sign
 
@@ -80,7 +81,7 @@ tasks.register<Jar>("javadocJar") {
         
         // Create a placeholder file to ensure the jar is not empty
         val placeholderFile = file("${tempDir}/placeholder.txt")
-        placeholderFile.writeText("This is a placeholder for Javadoc. Generated on ${java.util.Date()}")
+        placeholderFile.writeText("This is a placeholder for Javadoc. Generated on ${Date()}")
     }
     
     dependsOn("generateJavadoc")
@@ -88,8 +89,9 @@ tasks.register<Jar>("javadocJar") {
     
     // Try to use generated javadoc, fall back to empty directory if it fails
     from({ 
-        val javadocDir = tasks.named("generateJavadoc").get().destinationDir
-        if (javadocDir.exists() && javadocDir.listFiles()?.isNotEmpty() == true) {
+        val javadocTask = tasks.named("generateJavadoc").get() as Javadoc
+        val javadocDir = javadocTask.destinationDir
+        if (javadocDir?.exists() == true && javadocDir.listFiles()?.isNotEmpty() == true) {
             javadocDir
         } else {
             file("${buildDir}/tmp/emptyJavadoc")
@@ -125,6 +127,17 @@ tasks.register("publishToMavenCentral") {
     }
 }
 
+// Configure signing
+// Move signing configuration after the publishing block
+afterEvaluate {
+    signing {
+        setRequired(false) // Make signing optional
+        if (publishing.publications.findByName("release") != null) {
+            sign(publishing.publications["release"])
+        }
+    }
+}
+
 // Task to prepare a zip file for manual publishing to Maven Central
 tasks.register("prepareManualPublishZip") {
     description = "Prepares a zip file for manual publishing to Maven Central"
@@ -133,7 +146,8 @@ tasks.register("prepareManualPublishZip") {
     dependsOn("assembleRelease")
     dependsOn("javadocJar")
     dependsOn("sourcesJar")
-    dependsOn("signReleasePublication")
+    // Don't depend on signing task as it's optional
+    // dependsOn("signReleasePublication")
 
     doLast {
         // Create the directory structure following Maven repository layout
@@ -215,7 +229,7 @@ tasks.register("prepareManualPublishZip") {
             val tempDir = file("${buildDir}/tmp/emptyJavadoc")
             tempDir.mkdirs()
             val placeholderFile = file("${tempDir}/placeholder.txt")
-            placeholderFile.writeText("This is a placeholder for Javadoc. Generated on ${java.util.Date()}")
+            placeholderFile.writeText("This is a placeholder for Javadoc. Generated on ${Date()}")
             
             // Create a JAR file from the temporary directory
             ant.withGroovyBuilder {
@@ -239,7 +253,7 @@ tasks.register("prepareManualPublishZip") {
             val tempDir = file("${buildDir}/tmp/emptySources")
             tempDir.mkdirs()
             val placeholderFile = file("${tempDir}/placeholder.txt")
-            placeholderFile.writeText("This is a placeholder for Sources. Generated on ${java.util.Date()}")
+            placeholderFile.writeText("This is a placeholder for Sources. Generated on ${Date()}")
             
             // Create a JAR file from the temporary directory
             ant.withGroovyBuilder {
