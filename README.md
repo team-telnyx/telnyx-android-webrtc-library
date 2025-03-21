@@ -8,6 +8,8 @@
 
 This is a pre-compiled version of Google's WebRTC library for Android, maintained by Telnyx. It serves as the foundation for the [Telnyx Android Voice SDK](https://github.com/team-telnyx/telnyx-webrtc-android).
 
+For more detailed information about this library, please refer to our official documentation at [Telnyx Precompiled WebRTC Library Documentation](https://developers.telnyx.com/docs/voice/webrtc/android-sdk/precompiled-library).
+
 For more information about WebRTC for Android, you can also refer to the [WebRTC-Android documentation](https://getstream.github.io/webrtc-android/).
 
 ## What this library is NOT
@@ -41,6 +43,18 @@ You can use this repo to build WebRTC library from our sources:
 - Clone repository to your disk
 - Use command `./gradlew buildAarLib`
 - Library will be placed in folder `lib`
+
+### Documentation
+
+The library includes Javadoc documentation that can be generated using:
+
+```bash
+./gradlew :library:generateJavadoc
+```
+
+This will generate the documentation in `library/build/docs/javadoc/`.
+
+You can also access the latest Javadoc documentation online through our GitHub Pages site (generated automatically when the manual GitHub Action is triggered).
 
 ### Compile your own version of Google's WebRTC
 
