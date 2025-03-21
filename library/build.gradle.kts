@@ -123,7 +123,10 @@ tasks.register("prepareManualPublishZip") {
         val publishDir = file("${rootDir}/publish")
         val mavenDir = file("${publishDir}/${groupIdPath}/${artifactId}/${version}")
         
-        // Create directories
+        // Clean and create directories
+        if (publishDir.exists()) {
+            publishDir.deleteRecursively()
+        }
         mavenDir.mkdirs()
         
         // Define file names
@@ -132,7 +135,7 @@ tasks.register("prepareManualPublishZip") {
         val javadocName = "${aarName}-javadoc.jar"
         val sourcesName = "${aarName}-sources.jar"
         
-        // Copy and sign the AAR file
+        // Copy the AAR file
         copy {
             from("${buildDir}/outputs/aar/${artifactId}-release.aar")
             into(mavenDir)
@@ -160,16 +163,52 @@ tasks.register("prepareManualPublishZip") {
             rename { sourcesName }
         }
         
-        // Copy signature files
-        copy {
-            from("${buildDir}/libs")
-            into(mavenDir)
-            include("*.asc")
+        // List of files that need to be signed
+        val filesToSign = listOf(
+            "${mavenDir}/${aarName}.aar",
+            "${mavenDir}/${pomName}",
+            "${mavenDir}/${javadocName}",
+            "${mavenDir}/${sourcesName}"
+        )
+        
+        // Sign files using GPG
+        val signingKeyId = getLocalProperty("signing.keyId")
+        val signingPassword = getLocalProperty("signing.password")
+        
+        filesToSign.forEach { filePath ->
+            val file = file(filePath)
+            if (file.exists()) {
+                // Create signature file using GPG
+                if (signingKeyId.isNotEmpty() && signingPassword.isNotEmpty()) {
+                    // Use GPG with key ID and password
+                    exec {
+                        commandLine("gpg", "--batch", "--yes", "--passphrase", signingPassword, 
+                                   "--pinentry-mode", "loopback", "-ab", file.absolutePath)
+                        standardOutput = System.out
+                        errorOutput = System.err
+                    }
+                } else {
+                    // Use default GPG configuration
+                    exec {
+                        commandLine("gpg", "--batch", "--yes", "-ab", file.absolutePath)
+                        standardOutput = System.out
+                        errorOutput = System.err
+                    }
+                }
+                
+                // Verify signature was created
+                val sigFile = file("${file.absolutePath}.asc")
+                if (!sigFile.exists()) {
+                    throw GradleException("Failed to create signature for ${file.name}")
+                }
+            } else {
+                throw GradleException("File not found: ${file.absolutePath}")
+            }
         }
         
-        // Generate MD5 and SHA1 checksums
+        // Generate MD5 and SHA1 checksums for all files including signature files
         fileTree(mavenDir).forEach { file ->
-            if (!file.name.endsWith(".md5") && !file.name.endsWith(".sha1") && !file.name.endsWith(".asc")) {
+            if (!file.name.endsWith(".md5") && !file.name.endsWith(".sha1")) {
                 // Generate MD5
                 ant.withGroovyBuilder {
                     "checksum"("file" to file.absolutePath, "algorithm" to "MD5", "fileext" to ".md5")
@@ -187,11 +226,31 @@ tasks.register("prepareManualPublishZip") {
             "zip"("destfile" to "${publishDir}/maven-central-bundle.zip", "basedir" to publishDir, "includes" to "${groupIdPath}/**")
         }
         
-        println("Manual publishing bundle created at: ${publishDir}/maven-central-bundle.zip")
-        println("To publish to Maven Central:")
+        // Print summary of files included in the bundle
+        println("\n=== Maven Central Bundle Contents ===")
+        println("Bundle created at: ${publishDir}/maven-central-bundle.zip")
+        println("\nFiles included:")
+        
+        val fileTypes = mapOf(
+            ".aar" to "AAR Library",
+            ".pom" to "POM File",
+            "-javadoc.jar" to "Javadoc JAR",
+            "-sources.jar" to "Sources JAR",
+            ".asc" to "PGP Signature",
+            ".md5" to "MD5 Checksum",
+            ".sha1" to "SHA1 Checksum"
+        )
+        
+        fileTree(mavenDir).forEach { file ->
+            val fileType = fileTypes.entries.find { file.name.endsWith(it.key) }?.value ?: "Unknown"
+            println("- ${file.name} (${fileType})")
+        }
+        
+        println("\nTo publish to Maven Central:")
         println("1. Go to https://central.sonatype.org/")
         println("2. Click on 'Publish Component'")
-        println("3. Upload the zip file: ${publishDir}/maven-central-bundle.zip")
+        println("3. Enter deployment name: com.telnyx.webrtc.lib:library:${version}")
+        println("4. Upload the zip file: ${publishDir}/maven-central-bundle.zip")
     }
 }
 

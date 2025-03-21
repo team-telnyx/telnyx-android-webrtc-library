@@ -92,18 +92,28 @@ If you prefer to manually upload the bundle to Maven Central:
    signing.key=your_gpg_secret_key_content_in_ascii_armored_format
    ```
 
-2. Run the task to prepare the zip file for manual publishing:
+2. Make sure you have GPG installed and configured on your system. The task will use GPG to sign the files.
+
+3. Run the task to prepare the zip file for manual publishing:
    ```bash
    ./gradlew prepareManualPublishZip
    ```
 
-3. This will create a zip file in the `publish` directory with the proper Maven repository layout structure.
+4. This will create a zip file in the `publish` directory with the proper Maven repository layout structure. The zip file contains:
+   - AAR library file
+   - POM file
+   - Javadoc JAR
+   - Sources JAR
+   - PGP signature files (.asc) for all the above files
+   - MD5 and SHA1 checksums for all files
 
-4. Go to [Central Publisher Portal](https://central.sonatype.org/) and click on "Publish Component".
+5. Go to [Central Publisher Portal](https://central.sonatype.org/) and click on "Publish Component".
 
-5. Enter a deployment name (e.g., "com.telnyx.webrtc.lib:library:1.0.0") and upload the zip file.
+6. Enter a deployment name: `com.telnyx.webrtc.lib:library:1.0.0` and upload the zip file.
 
-6. Follow the instructions on the portal to complete the publishing process.
+7. Follow the instructions on the portal to complete the publishing process.
+
+8. If you encounter any issues with the upload, check the console output from the `prepareManualPublishZip` task for a list of all files included in the bundle and verify that all required files are present.
 
 #### Alternative: Step-by-Step Publishing
 
