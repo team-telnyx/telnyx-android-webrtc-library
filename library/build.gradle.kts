@@ -1,8 +1,6 @@
 import java.io.FileInputStream
 import java.util.Properties
 import java.util.Date
-import org.gradle.api.publish.maven.tasks.AbstractPublishToMaven
-import org.gradle.plugins.signing.Sign
 
 plugins {
     alias(libs.plugins.android.library)
@@ -105,37 +103,6 @@ tasks.register<Jar>("sourcesJar") {
     
     archiveClassifier.set("sources")
     from(android.sourceSets.getByName("main").java.srcDirs)
-}
-
-// Task to publish to Maven Central
-tasks.register("publishToMavenCentral") {
-    description = "Publishes the library to Maven Central repository"
-    group = "publishing"
-
-    dependsOn("assembleRelease")
-    dependsOn("javadocJar")
-    dependsOn("sourcesJar")
-    dependsOn("publishReleasePublicationToSonatypeRepository")
-
-    doLast {
-        println("Library successfully published to Maven Central")
-        println("Group: com.telnyx.webrtc.lib")
-        println("Artifact: library")
-        println("Version: ${getVersionName()}")
-        println("To use this library in your project, add the following dependency:")
-        println("implementation 'com.telnyx.webrtc.lib:library:${getVersionName()}'")
-    }
-}
-
-// Configure signing
-// Move signing configuration after the publishing block
-afterEvaluate {
-    signing {
-        setRequired(false) // Make signing optional
-        if (publishing.publications.findByName("release") != null) {
-            sign(publishing.publications["release"])
-        }
-    }
 }
 
 // Task to prepare a zip file for manual publishing to Maven Central
@@ -320,33 +287,26 @@ tasks.register("prepareManualPublishZip") {
             if (file.exists()) {
                 println("Processing file: ${file.name}")
                 
-                // 1. Create MD5 checksum
-                try {
-                    val md5Process = ProcessBuilder("md5sum", file.absolutePath)
-                        .redirectOutput(ProcessBuilder.Redirect.PIPE)
-                        .start()
-                    val md5 = md5Process.inputStream.bufferedReader().readLine()?.split(" ")?.get(0) ?: ""
-                    file("${file.absolutePath}.md5").writeText(md5)
-                    println("  Created MD5 checksum: ${md5}")
-                } catch (e: Exception) {
-                    println("  WARNING: Failed to generate MD5 checksum. Using dummy value.")
-                    file("${file.absolutePath}.md5").writeText("00000000000000000000000000000000")
+                // 1. Create MD5 and SHA1 checksum
+                if (!file.name.endsWith(".md5") && !file.name.endsWith(".sha1")) {
+                    try {
+                        // Generate MD5
+                        ant.withGroovyBuilder {
+                            "checksum"("file" to file.absolutePath, "algorithm" to "MD5", "fileext" to ".md5")
+                        }
+
+                        // Generate SHA1
+                        ant.withGroovyBuilder {
+                            "checksum"("file" to file.absolutePath, "algorithm" to "SHA1", "fileext" to ".sha1")
+                        }
+                    } catch (e: Exception) {
+                        println("WARNING: Failed to generate checksums for ${file.name}: ${e.message}. Creating dummy checksums.")
+                        file("${file.absolutePath}.md5").writeText("00000000000000000000000000000000")
+                        file("${file.absolutePath}.sha1").writeText("0000000000000000000000000000000000000000")
+                    }
                 }
                 
-                // 2. Create SHA1 checksum
-                try {
-                    val sha1Process = ProcessBuilder("sha1sum", file.absolutePath)
-                        .redirectOutput(ProcessBuilder.Redirect.PIPE)
-                        .start()
-                    val sha1 = sha1Process.inputStream.bufferedReader().readLine()?.split(" ")?.get(0) ?: ""
-                    file("${file.absolutePath}.sha1").writeText(sha1)
-                    println("  Created SHA1 checksum: ${sha1}")
-                } catch (e: Exception) {
-                    println("  WARNING: Failed to generate SHA1 checksum. Using dummy value.")
-                    file("${file.absolutePath}.sha1").writeText("0000000000000000000000000000000000000000")
-                }
-                
-                // 3. Create ASCII formatted signature using GPG
+                // 2. Create ASCII formatted signature using GPG
                 if (gpgAvailable) {
                     if (signingKeyId.isNotEmpty() && signingPassword.isNotEmpty()) {
                         try {
@@ -383,41 +343,11 @@ tasks.register("prepareManualPublishZip") {
                     println("  Created dummy signature file (GPG not available)")
                 }
                 
-                // Verify signature was created
+                // 3. Verify signature was created
                 val sigFile = file("${file.absolutePath}.asc")
                 if (!sigFile.exists()) {
                     println("  WARNING: Signature file was not created. Creating dummy signature.")
                     file("${file.absolutePath}.asc").writeText("-----BEGIN PGP SIGNATURE-----\nVersion: GnuPG v2\n\nDUMMY SIGNATURE FOR ${file.name}\n-----END PGP SIGNATURE-----")
-                }
-                
-                // 4. Create MD5 and SHA1 checksums for the signature file
-                val ascFile = file("${file.absolutePath}.asc")
-                if (ascFile.exists()) {
-                    // MD5 for signature file
-                    try {
-                        val md5Process = ProcessBuilder("md5sum", ascFile.absolutePath)
-                            .redirectOutput(ProcessBuilder.Redirect.PIPE)
-                            .start()
-                        val md5 = md5Process.inputStream.bufferedReader().readLine()?.split(" ")?.get(0) ?: ""
-                        file("${ascFile.absolutePath}.md5").writeText(md5)
-                        println("  Created MD5 checksum for signature: ${md5}")
-                    } catch (e: Exception) {
-                        println("  WARNING: Failed to generate MD5 checksum for signature. Using dummy value.")
-                        file("${ascFile.absolutePath}.md5").writeText("00000000000000000000000000000000")
-                    }
-                    
-                    // SHA1 for signature file
-                    try {
-                        val sha1Process = ProcessBuilder("sha1sum", ascFile.absolutePath)
-                            .redirectOutput(ProcessBuilder.Redirect.PIPE)
-                            .start()
-                        val sha1 = sha1Process.inputStream.bufferedReader().readLine()?.split(" ")?.get(0) ?: ""
-                        file("${ascFile.absolutePath}.sha1").writeText(sha1)
-                        println("  Created SHA1 checksum for signature: ${sha1}")
-                    } catch (e: Exception) {
-                        println("  WARNING: Failed to generate SHA1 checksum for signature. Using dummy value.")
-                        file("${ascFile.absolutePath}.sha1").writeText("0000000000000000000000000000000000000000")
-                    }
                 }
             } else {
                 println("WARNING: File not found for processing: ${file.absolutePath}")
@@ -463,112 +393,6 @@ tasks.register("prepareManualPublishZip") {
         println("3. Enter deployment name: ${groupId}:${artifactId}:${version}")
         println("4. Upload the zip file: ${rootDir}/publish/com-telnyx-webrtc-lib.zip")
     }
-}
-
-// Fix task dependencies for signing
-tasks.withType<Sign>().configureEach {
-    // Ensure bundleReleaseAar task runs before signing
-    dependsOn("bundleReleaseAar")
-}
-
-// Maven publishing configuration
-publishing {
-    publications {
-        create<MavenPublication>("release") {
-            groupId = "com.telnyx.webrtc.lib"
-            artifactId = "library"
-            version = getVersionName()
-
-            // Use the release AAR file
-            artifact("$buildDir/outputs/aar/library-release.aar")
-
-            // Add sources and javadoc artifacts
-            artifact(tasks["javadocJar"])
-            artifact(tasks["sourcesJar"])
-
-            // Add POM information required by Maven Central
-            pom {
-                name.set("Telnyx WebRTC Android Library")
-                description.set("Android WebRTC library for Telnyx services")
-                url.set("https://github.com/team-telnyx/telnyx-android-webrtc-library")
-
-                licenses {
-                    license {
-                        name.set("MIT License")
-                        url.set("https://opensource.org/licenses/MIT")
-                    }
-                }
-
-                developers {
-                    developer {
-                        id.set("telnyx")
-                        name.set("Telnyx")
-                        email.set("support@telnyx.com")
-                    }
-                }
-
-                scm {
-                    connection.set("scm:git:git://github.com/team-telnyx/telnyx-android-webrtc-library.git")
-                    developerConnection.set("scm:git:ssh://github.com:team-telnyx/telnyx-android-webrtc-library.git")
-                    url.set("https://github.com/team-telnyx/telnyx-android-webrtc-library")
-                }
-            }
-        }
-    }
-
-    repositories {
-        // Local repository (existing)
-        maven {
-            name = "localRepo"
-            url = uri("$buildDir/repo")
-        }
-
-        // Maven Central repository using Sonatype OSSRH
-        maven {
-            name = "sonatype"
-            // Use the newer s01 URLs as recommended by Sonatype
-            val releasesRepoUrl = uri("https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/")
-            val snapshotsRepoUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
-            url = if (getVersionName().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
-
-            credentials {
-                username = getLocalProperty("ossrhUsername")
-                password = getLocalProperty("ossrhPassword")
-            }
-        }
-    }
-}
-
-// Signing configuration for Maven Central
-signing {
-    // Only sign release builds
-    setRequired({ gradle.taskGraph.hasTask("publishReleasePublicationToSonatypeRepository") })
-
-    val signingKeyId = getLocalProperty("signing.keyId")
-    val signingKey = getLocalProperty("signing.key").replace("\\n", "\n")
-    val signingPassword = getLocalProperty("signing.password")
-
-    if (signingKeyId.isNotEmpty() && signingKey.isNotEmpty() && signingPassword.isNotEmpty()) {
-        // Use in-memory PGP keys if provided in local.properties
-        useInMemoryPgpKeys(signingKeyId, signingKey, signingPassword)
-    } else {
-        // Fallback to using gpg command line tool
-        useGpgCmd()
-    }
-
-    // Sign all publications
-    sign(publishing.publications["release"])
-}
-
-// Make sure signing happens before publishing
-tasks.withType<AbstractPublishToMaven>().configureEach {
-    dependsOn(tasks.withType<Sign>())
-}
-
-// Make sure Javadoc and sources JARs are generated before signing
-tasks.withType<Sign>().configureEach {
-    dependsOn(tasks.named("javadocJar"))
-    dependsOn(tasks.named("sourcesJar"))
 }
 
 android {

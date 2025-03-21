@@ -1,39 +1,16 @@
 # Telnyx Android WebRTC Library
+[![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android-library.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android-library)
+
 
 🛰️ Telnyx WebRTC Android is Google's WebRTC pre-compiled library for Android by :telephone_receiver: :fire:
 
-## Installation
+### Gradle
 
-### Maven Central (Recommended)
-
-The library is available on Maven Central. Add the below dependency to your **module**'s `build.gradle` file:
+Add the below dependency to your **module**'s `build.gradle` file:
 
 ```kotlin
 dependencies {
     implementation("com.telnyx.webrtc.lib:library:1.0.0")
-}
-```
-
-### JitPack (Legacy)
-
-[![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android-library.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android-library)
-
-If you prefer using JitPack, add the JitPack repository to your root `build.gradle` file:
-
-```kotlin
-allprojects {
-    repositories {
-        // ...
-        maven { url = uri("https://jitpack.io") }
-    }
-}
-```
-
-Then add the dependency:
-
-```kotlin
-dependencies {
-    implementation("com.github.team-telnyx:telnyx-webrtc-android-library:1.0.0")
 }
 ```
 
@@ -44,94 +21,6 @@ You can use this repo to build WebRTC library from our sources:
 - Clone repository to your disk
 - Use command `./gradlew buildAarLib`
 - Library will be placed in folder `lib`
-
-### Publishing to Maven Central
-
-There are two ways to publish the library to Maven Central:
-
-#### Option 1: Automated Publishing via Gradle
-
-1. Copy `local.properties.template` to `local.properties` and fill in your Sonatype OSSRH credentials and GPG signing information:
-   ```properties
-   # Maven Central (Sonatype OSSRH) credentials
-   ossrhUsername=your_sonatype_username
-   ossrhPassword=your_sonatype_password
-
-   # GPG Signing information for Maven Central
-   signing.keyId=your_gpg_key_id_last_8_chars
-   signing.password=your_gpg_key_password
-   signing.key=your_gpg_secret_key_content_in_ascii_armored_format
-   ```
-
-2. Generate the library AAR file:
-   ```bash
-   ./gradlew buildAarLib
-   ```
-
-3. Generate Javadoc and sources JARs (required by Maven Central):
-   ```bash
-   ./gradlew javadocJar sourcesJar
-   ```
-
-4. Run the publishing task:
-   ```bash
-   ./gradlew publishToMavenCentral
-   ```
-
-5. Log in to [Sonatype OSSRH](https://s01.oss.sonatype.org/) to monitor the staged repository.
-
-#### Option 2: Manual Publishing via Central Portal Upload
-
-If you prefer to manually upload the bundle to Maven Central:
-
-1. Copy `local.properties.template` to `local.properties` and fill in your GPG signing information:
-   ```properties
-   # GPG Signing information for Maven Central
-   signing.keyId=your_gpg_key_id_last_8_chars
-   signing.password=your_gpg_key_password
-   signing.key=your_gpg_secret_key_content_in_ascii_armored_format
-   ```
-
-2. Make sure you have GPG installed and configured on your system. The task will use GPG to sign the files.
-
-3. Run the task to prepare the zip file for manual publishing:
-   ```bash
-   ./gradlew prepareManualPublishZip
-   ```
-
-4. This will create a zip file named `com-telnyx-webrtc-lib.zip` in the `publish` directory. The zip file contains:
-   - AAR library file (`library-1.0.0.aar`)
-   - POM file (`library-1.0.0.pom`)
-   - Javadoc JAR (`library-1.0.0-javadoc.jar`)
-   - Sources JAR (`library-1.0.0-sources.jar`)
-   - PGP signature files (`.asc`) for all the above files
-   - MD5 (`.md5`) and SHA1 (`.sha1`) checksums for all files including signature files
-
-5. Go to [Central Publisher Portal](https://central.sonatype.org/) and click on "Publish Component".
-
-6. Enter a deployment name: `com.telnyx.webrtc.lib:library:1.0.0` and upload the zip file.
-
-7. Follow the instructions on the portal to complete the publishing process.
-
-8. If you encounter any issues with the upload, check the console output from the `prepareManualPublishZip` task for a list of all files included in the bundle and verify that all required files are present.
-
-#### Alternative: Step-by-Step Publishing
-
-If you prefer more control over the publishing process:
-
-1. Build the library and stage artifacts locally:
-   ```bash
-   ./gradlew clean buildAarLib javadocJar sourcesJar publishReleasePublicationToLocalRepoRepository
-   ```
-
-2. Verify the staged artifacts in the `build/repo` directory.
-
-3. Publish to Sonatype OSSRH:
-   ```bash
-   ./gradlew publishReleasePublicationToSonatypeRepository
-   ```
-
-4. Close and release the repository on [Sonatype OSSRH](https://s01.oss.sonatype.org/).
 
 ### Compile your own version of Google's WebRTC
 
@@ -161,7 +50,7 @@ To avoid this, you will have to change name of the package in Google sources. Le
         ```
         import org.webrtc.NetworkPreference;
         ```
-            - in file `sdk/android/api/com/example/RtpParameters.java` add line:
+	    - in file `sdk/android/api/com/example/RtpParameters.java` add line:
         ```
         import org.webrtc.Priority
         ```
