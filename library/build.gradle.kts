@@ -575,3 +575,13 @@ android {
         }
     }
 }
+dependencies {
+    implementation(libs.appcompat)
+    implementation(libs.material)
+
+    implementation(libs.slf4j)
+
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.ext.junit)
+    androidTestImplementation(libs.espresso.core)
+}

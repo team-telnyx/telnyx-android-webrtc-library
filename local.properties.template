@@ -9,6 +9,5 @@ ossrhUsername=your_sonatype_username
 ossrhPassword=your_sonatype_password
 
 # GPG Signing information for Maven Central
-signing.keyId=your_gpg_key_id_last_8_chars
+signing.keyId=your_gpg_key_id
 signing.password=your_gpg_key_password
-signing.key=your_gpg_secret_key_content_in_ascii_armored_format
