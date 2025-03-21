@@ -150,18 +150,16 @@ tasks.register("prepareManualPublishZip") {
     // dependsOn("signReleasePublication")
 
     doLast {
-        // Create the directory structure following Maven repository layout
-        val groupIdPath = "com/telnyx/webrtc/lib"
+        // Create the directory structure
         val artifactId = "library"
         val version = getVersionName()
         val publishDir = file("${rootDir}/publish")
-        val mavenDir = file("${publishDir}/${groupIdPath}/${artifactId}/${version}")
         
         // Clean and create directories
         if (publishDir.exists()) {
             publishDir.deleteRecursively()
         }
-        mavenDir.mkdirs()
+        publishDir.mkdirs()
         
         // Define file names
         val aarName = "${artifactId}-${version}"
@@ -178,14 +176,14 @@ tasks.register("prepareManualPublishZip") {
         if (aarFile.exists()) {
             copy {
                 from(aarFile)
-                into(mavenDir)
+                into(publishDir)
                 rename { "${aarName}.aar" }
             }
             println("Copied AAR file: ${aarFile}")
         } else {
             println("WARNING: AAR file not found at ${aarFile}")
             // Create a dummy AAR file to continue the process
-            file("${mavenDir}/${aarName}.aar").writeBytes(byteArrayOf())
+            file("${publishDir}/${aarName}.aar").writeBytes(byteArrayOf())
         }
         
         // Copy the POM file
@@ -193,7 +191,7 @@ tasks.register("prepareManualPublishZip") {
         if (pomFile.exists()) {
             copy {
                 from(pomFile)
-                into(mavenDir)
+                into(publishDir)
                 rename { pomName }
             }
             println("Copied POM file: ${pomFile}")
@@ -211,7 +209,7 @@ tasks.register("prepareManualPublishZip") {
                   <description>Android WebRTC library for Telnyx services</description>
                 </project>
             """.trimIndent()
-            file("${mavenDir}/${pomName}").writeText(dummyPom)
+            file("${publishDir}/${pomName}").writeText(dummyPom)
         }
         
         // Copy Javadoc JAR
@@ -219,7 +217,7 @@ tasks.register("prepareManualPublishZip") {
         if (javadocJarFile.exists()) {
             copy {
                 from(javadocJarFile)
-                into(mavenDir)
+                into(publishDir)
                 rename { javadocName }
             }
             println("Copied Javadoc JAR: ${javadocJarFile}")
@@ -233,9 +231,9 @@ tasks.register("prepareManualPublishZip") {
             
             // Create a JAR file from the temporary directory
             ant.withGroovyBuilder {
-                "jar"("destfile" to "${mavenDir}/${javadocName}", "basedir" to tempDir.absolutePath)
+                "jar"("destfile" to "${publishDir}/${javadocName}", "basedir" to tempDir.absolutePath)
             }
-            println("Created dummy Javadoc JAR: ${mavenDir}/${javadocName}")
+            println("Created dummy Javadoc JAR: ${publishDir}/${javadocName}")
         }
         
         // Copy Sources JAR
@@ -243,7 +241,7 @@ tasks.register("prepareManualPublishZip") {
         if (sourcesJarFile.exists()) {
             copy {
                 from(sourcesJarFile)
-                into(mavenDir)
+                into(publishDir)
                 rename { sourcesName }
             }
             println("Copied Sources JAR: ${sourcesJarFile}")
@@ -257,24 +255,24 @@ tasks.register("prepareManualPublishZip") {
             
             // Create a JAR file from the temporary directory
             ant.withGroovyBuilder {
-                "jar"("destfile" to "${mavenDir}/${sourcesName}", "basedir" to tempDir.absolutePath)
+                "jar"("destfile" to "${publishDir}/${sourcesName}", "basedir" to tempDir.absolutePath)
             }
-            println("Created dummy Sources JAR: ${mavenDir}/${sourcesName}")
+            println("Created dummy Sources JAR: ${publishDir}/${sourcesName}")
         }
         
-        // List of files that need to be signed
-        val filesToSign = listOf(
-            "${mavenDir}/${aarName}.aar",
-            "${mavenDir}/${pomName}",
-            "${mavenDir}/${javadocName}",
-            "${mavenDir}/${sourcesName}"
+        // List of files that need to be signed and checksummed
+        val filesToProcess = listOf(
+            "${publishDir}/${aarName}.aar",
+            "${publishDir}/${pomName}",
+            "${publishDir}/${javadocName}",
+            "${publishDir}/${sourcesName}"
         )
         
-        // Sign files using GPG
+        // Sign files using GPG and create checksums
         val signingKeyId = getLocalProperty("signing.keyId")
         val signingPassword = getLocalProperty("signing.password")
         
-        // Create dummy signature files if GPG is not available
+        // Check if GPG is available
         var gpgAvailable = false
         try {
             exec {
@@ -283,99 +281,136 @@ tasks.register("prepareManualPublishZip") {
                 errorOutput = System.err
             }
             gpgAvailable = true
+            println("GPG is available for signing")
         } catch (e: Exception) {
             println("WARNING: GPG is not available. Creating dummy signature files.")
         }
         
-        filesToSign.forEach { filePath ->
+        // Process each file (sign and create checksums)
+        filesToProcess.forEach { filePath ->
             val file = file(filePath)
             if (file.exists()) {
+                println("Processing file: ${file.name}")
+                
+                // 1. Create MD5 checksum
                 try {
-                    // Create signature file using GPG
-                    if (gpgAvailable) {
-                        if (signingKeyId.isNotEmpty() && signingPassword.isNotEmpty()) {
-                            // Use GPG with key ID and password
-                            try {
-                                exec {
-                                    commandLine("gpg", "--batch", "--yes", "--passphrase", signingPassword, 
-                                               "--pinentry-mode", "loopback", "-ab", file.absolutePath)
-                                    standardOutput = System.out
-                                    errorOutput = System.err
-                                }
-                            } catch (e: Exception) {
-                                println("WARNING: Failed to sign ${file.name} with GPG. Creating dummy signature file.")
-                                file("${file.absolutePath}.asc").writeText("-----BEGIN PGP SIGNATURE-----\nVersion: GnuPG v2\n\nDUMMY SIGNATURE FOR ${file.name}\n-----END PGP SIGNATURE-----")
-                            }
-                        } else {
-                            // Use default GPG configuration
-                            try {
-                                exec {
-                                    commandLine("gpg", "--batch", "--yes", "-ab", file.absolutePath)
-                                    standardOutput = System.out
-                                    errorOutput = System.err
-                                }
-                            } catch (e: Exception) {
-                                println("WARNING: Failed to sign ${file.name} with GPG. Creating dummy signature file.")
-                                file("${file.absolutePath}.asc").writeText("-----BEGIN PGP SIGNATURE-----\nVersion: GnuPG v2\n\nDUMMY SIGNATURE FOR ${file.name}\n-----END PGP SIGNATURE-----")
-                            }
-                        }
-                    } else {
-                        // Create dummy signature file
-                        file("${file.absolutePath}.asc").writeText("-----BEGIN PGP SIGNATURE-----\nVersion: GnuPG v2\n\nDUMMY SIGNATURE FOR ${file.name}\n-----END PGP SIGNATURE-----")
-                    }
-                    
-                    // Verify signature was created
-                    val sigFile = file("${file.absolutePath}.asc")
-                    if (!sigFile.exists()) {
-                        println("WARNING: Failed to create signature for ${file.name}. Creating dummy signature file.")
-                        file("${file.absolutePath}.asc").writeText("-----BEGIN PGP SIGNATURE-----\nVersion: GnuPG v2\n\nDUMMY SIGNATURE FOR ${file.name}\n-----END PGP SIGNATURE-----")
-                    }
+                    val md5Process = ProcessBuilder("md5sum", file.absolutePath)
+                        .redirectOutput(ProcessBuilder.Redirect.PIPE)
+                        .start()
+                    val md5 = md5Process.inputStream.bufferedReader().readLine()?.split(" ")?.get(0) ?: ""
+                    file("${file.absolutePath}.md5").writeText(md5)
+                    println("  Created MD5 checksum: ${md5}")
                 } catch (e: Exception) {
-                    println("WARNING: Error while signing ${file.name}: ${e.message}. Creating dummy signature file.")
-                    file("${file.absolutePath}.asc").writeText("-----BEGIN PGP SIGNATURE-----\nVersion: GnuPG v2\n\nDUMMY SIGNATURE FOR ${file.name}\n-----END PGP SIGNATURE-----")
-                }
-            } else {
-                println("WARNING: File not found for signing: ${file.absolutePath}. Creating empty file and dummy signature.")
-                file.writeBytes(byteArrayOf())
-                file("${file.absolutePath}.asc").writeText("-----BEGIN PGP SIGNATURE-----\nVersion: GnuPG v2\n\nDUMMY SIGNATURE FOR ${file.name}\n-----END PGP SIGNATURE-----")
-            }
-        }
-        
-        // Generate MD5 and SHA1 checksums for all files including signature files
-        fileTree(mavenDir).forEach { file ->
-            if (!file.name.endsWith(".md5") && !file.name.endsWith(".sha1")) {
-                try {
-                    // Generate MD5
-                    ant.withGroovyBuilder {
-                        "checksum"("file" to file.absolutePath, "algorithm" to "MD5", "fileext" to ".md5")
-                    }
-                    
-                    // Generate SHA1
-                    ant.withGroovyBuilder {
-                        "checksum"("file" to file.absolutePath, "algorithm" to "SHA1", "fileext" to ".sha1")
-                    }
-                } catch (e: Exception) {
-                    println("WARNING: Failed to generate checksums for ${file.name}: ${e.message}. Creating dummy checksums.")
+                    println("  WARNING: Failed to generate MD5 checksum. Using dummy value.")
                     file("${file.absolutePath}.md5").writeText("00000000000000000000000000000000")
+                }
+                
+                // 2. Create SHA1 checksum
+                try {
+                    val sha1Process = ProcessBuilder("sha1sum", file.absolutePath)
+                        .redirectOutput(ProcessBuilder.Redirect.PIPE)
+                        .start()
+                    val sha1 = sha1Process.inputStream.bufferedReader().readLine()?.split(" ")?.get(0) ?: ""
+                    file("${file.absolutePath}.sha1").writeText(sha1)
+                    println("  Created SHA1 checksum: ${sha1}")
+                } catch (e: Exception) {
+                    println("  WARNING: Failed to generate SHA1 checksum. Using dummy value.")
                     file("${file.absolutePath}.sha1").writeText("0000000000000000000000000000000000000000")
                 }
+                
+                // 3. Create ASCII formatted signature using GPG
+                if (gpgAvailable) {
+                    if (signingKeyId.isNotEmpty() && signingPassword.isNotEmpty()) {
+                        try {
+                            // Use GPG with key ID and password
+                            exec {
+                                commandLine("gpg", "--local-user", signingKeyId, "--batch", "--yes", 
+                                           "--passphrase", signingPassword, "--pinentry-mode", "loopback", 
+                                           "-ab", file.absolutePath)
+                                standardOutput = System.out
+                                errorOutput = System.err
+                            }
+                            println("  Signed file with GPG using key ID: ${signingKeyId}")
+                        } catch (e: Exception) {
+                            println("  WARNING: Failed to sign with GPG using key ID. Error: ${e.message}")
+                            file("${file.absolutePath}.asc").writeText("-----BEGIN PGP SIGNATURE-----\nVersion: GnuPG v2\n\nDUMMY SIGNATURE FOR ${file.name}\n-----END PGP SIGNATURE-----")
+                        }
+                    } else {
+                        try {
+                            // Use default GPG configuration
+                            exec {
+                                commandLine("gpg", "--batch", "--yes", "-ab", file.absolutePath)
+                                standardOutput = System.out
+                                errorOutput = System.err
+                            }
+                            println("  Signed file with default GPG configuration")
+                        } catch (e: Exception) {
+                            println("  WARNING: Failed to sign with default GPG. Error: ${e.message}")
+                            file("${file.absolutePath}.asc").writeText("-----BEGIN PGP SIGNATURE-----\nVersion: GnuPG v2\n\nDUMMY SIGNATURE FOR ${file.name}\n-----END PGP SIGNATURE-----")
+                        }
+                    }
+                } else {
+                    // Create dummy signature file
+                    file("${file.absolutePath}.asc").writeText("-----BEGIN PGP SIGNATURE-----\nVersion: GnuPG v2\n\nDUMMY SIGNATURE FOR ${file.name}\n-----END PGP SIGNATURE-----")
+                    println("  Created dummy signature file (GPG not available)")
+                }
+                
+                // Verify signature was created
+                val sigFile = file("${file.absolutePath}.asc")
+                if (!sigFile.exists()) {
+                    println("  WARNING: Signature file was not created. Creating dummy signature.")
+                    file("${file.absolutePath}.asc").writeText("-----BEGIN PGP SIGNATURE-----\nVersion: GnuPG v2\n\nDUMMY SIGNATURE FOR ${file.name}\n-----END PGP SIGNATURE-----")
+                }
+                
+                // 4. Create MD5 and SHA1 checksums for the signature file
+                val ascFile = file("${file.absolutePath}.asc")
+                if (ascFile.exists()) {
+                    // MD5 for signature file
+                    try {
+                        val md5Process = ProcessBuilder("md5sum", ascFile.absolutePath)
+                            .redirectOutput(ProcessBuilder.Redirect.PIPE)
+                            .start()
+                        val md5 = md5Process.inputStream.bufferedReader().readLine()?.split(" ")?.get(0) ?: ""
+                        file("${ascFile.absolutePath}.md5").writeText(md5)
+                        println("  Created MD5 checksum for signature: ${md5}")
+                    } catch (e: Exception) {
+                        println("  WARNING: Failed to generate MD5 checksum for signature. Using dummy value.")
+                        file("${ascFile.absolutePath}.md5").writeText("00000000000000000000000000000000")
+                    }
+                    
+                    // SHA1 for signature file
+                    try {
+                        val sha1Process = ProcessBuilder("sha1sum", ascFile.absolutePath)
+                            .redirectOutput(ProcessBuilder.Redirect.PIPE)
+                            .start()
+                        val sha1 = sha1Process.inputStream.bufferedReader().readLine()?.split(" ")?.get(0) ?: ""
+                        file("${ascFile.absolutePath}.sha1").writeText(sha1)
+                        println("  Created SHA1 checksum for signature: ${sha1}")
+                    } catch (e: Exception) {
+                        println("  WARNING: Failed to generate SHA1 checksum for signature. Using dummy value.")
+                        file("${ascFile.absolutePath}.sha1").writeText("0000000000000000000000000000000000000000")
+                    }
+                }
+            } else {
+                println("WARNING: File not found for processing: ${file.absolutePath}")
             }
         }
         
-        // Create a zip file
+        // Create a zip file with the name com-telnyx-webrtc-lib.zip
         try {
             ant.withGroovyBuilder {
-                "zip"("destfile" to "${publishDir}/maven-central-bundle.zip", "basedir" to publishDir, "includes" to "${groupIdPath}/**")
+                "zip"("destfile" to "${rootDir}/publish/com-telnyx-webrtc-lib.zip", "basedir" to publishDir, "includes" to "*.aar,*.pom,*.jar,*.asc,*.md5,*.sha1")
             }
+            println("\nCreated zip file: ${rootDir}/publish/com-telnyx-webrtc-lib.zip")
         } catch (e: Exception) {
             println("WARNING: Failed to create zip file: ${e.message}")
         }
         
         // Print summary of files included in the bundle
         println("\n=== Maven Central Bundle Contents ===")
-        println("Bundle created at: ${publishDir}/maven-central-bundle.zip")
+        println("Bundle created at: ${rootDir}/publish/com-telnyx-webrtc-lib.zip")
         println("\nFiles included:")
-        
+
         val fileTypes = mapOf(
             ".aar" to "AAR Library",
             ".pom" to "POM File",
@@ -385,17 +420,17 @@ tasks.register("prepareManualPublishZip") {
             ".md5" to "MD5 Checksum",
             ".sha1" to "SHA1 Checksum"
         )
-        
-        fileTree(mavenDir).forEach { file ->
+
+        fileTree(publishDir).forEach { file ->
             val fileType = fileTypes.entries.find { file.name.endsWith(it.key) }?.value ?: "Unknown"
             println("- ${file.name} (${fileType})")
         }
-        
+
         println("\nTo publish to Maven Central:")
         println("1. Go to https://central.sonatype.org/")
         println("2. Click on 'Publish Component'")
         println("3. Enter deployment name: com.telnyx.webrtc.lib:library:${version}")
-        println("4. Upload the zip file: ${publishDir}/maven-central-bundle.zip")
+        println("4. Upload the zip file: ${rootDir}/publish/com-telnyx-webrtc-lib.zip")
     }
 }
 
@@ -415,7 +450,7 @@ publishing {
 
             // Use the release AAR file
             artifact("$buildDir/outputs/aar/library-release.aar")
-            
+
             // Add sources and javadoc artifacts
             artifact(tasks["javadocJar"])
             artifact(tasks["sourcesJar"])
@@ -425,14 +460,14 @@ publishing {
                 name.set("Telnyx WebRTC Android Library")
                 description.set("Android WebRTC library for Telnyx services")
                 url.set("https://github.com/team-telnyx/telnyx-android-webrtc-library")
-                
+
                 licenses {
                     license {
                         name.set("MIT License")
                         url.set("https://opensource.org/licenses/MIT")
                     }
                 }
-                
+
                 developers {
                     developer {
                         id.set("telnyx")
@@ -440,7 +475,7 @@ publishing {
                         email.set("support@telnyx.com")
                     }
                 }
-                
+
                 scm {
                     connection.set("scm:git:git://github.com/team-telnyx/telnyx-android-webrtc-library.git")
                     developerConnection.set("scm:git:ssh://github.com:team-telnyx/telnyx-android-webrtc-library.git")
@@ -456,7 +491,7 @@ publishing {
             name = "localRepo"
             url = uri("$buildDir/repo")
         }
-        
+
         // Maven Central repository using Sonatype OSSRH
         maven {
             name = "sonatype"
@@ -477,7 +512,7 @@ publishing {
 signing {
     // Only sign release builds
     setRequired({ gradle.taskGraph.hasTask("publishReleasePublicationToSonatypeRepository") })
-    
+
     val signingKeyId = getLocalProperty("signing.keyId")
     val signingKey = getLocalProperty("signing.key").replace("\\n", "\n")
     val signingPassword = getLocalProperty("signing.password")
@@ -489,7 +524,7 @@ signing {
         // Fallback to using gpg command line tool
         useGpgCmd()
     }
-    
+
     // Sign all publications
     sign(publishing.publications["release"])
 }
@@ -539,15 +574,4 @@ android {
             jniLibs.srcDir("webrtc_libs")
         }
     }
-}
-
-dependencies {
-    implementation(libs.appcompat)
-    implementation(libs.material)
-
-    implementation(libs.slf4j)
-
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.ext.junit)
-    androidTestImplementation(libs.espresso.core)
 }

@@ -99,13 +99,13 @@ If you prefer to manually upload the bundle to Maven Central:
    ./gradlew prepareManualPublishZip
    ```
 
-4. This will create a zip file in the `publish` directory with the proper Maven repository layout structure. The zip file contains:
-   - AAR library file
-   - POM file
-   - Javadoc JAR
-   - Sources JAR
-   - PGP signature files (.asc) for all the above files
-   - MD5 and SHA1 checksums for all files
+4. This will create a zip file named `com-telnyx-webrtc-lib.zip` in the `publish` directory. The zip file contains:
+   - AAR library file (`library-1.0.0.aar`)
+   - POM file (`library-1.0.0.pom`)
+   - Javadoc JAR (`library-1.0.0-javadoc.jar`)
+   - Sources JAR (`library-1.0.0-sources.jar`)
+   - PGP signature files (`.asc`) for all the above files
+   - MD5 (`.md5`) and SHA1 (`.sha1`) checksums for all files including signature files
 
 5. Go to [Central Publisher Portal](https://central.sonatype.org/) and click on "Publish Component".
 
