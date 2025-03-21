@@ -32,7 +32,7 @@ Add the below dependency to your **module**'s `build.gradle` file:
 
 ```kotlin
 dependencies {
-    implementation("com.telnyx.webrtc.lib:library:1.0.0")
+    implementation("com.telnyx.webrtc.lib:library:1.0.1")
 }
 ```
 

@@ -74,32 +74,39 @@ tasks.register<Copy>("buildAarLib") {
     rename { outputFileName }
 }
 
-// Task to generate Javadoc
+// Generate Javadoc
 tasks.register<Javadoc>("generateJavadoc") {
-    description = "Generates Javadoc for the WebRTC Android Library"
-    title = "Telnyx WebRTC Android Library Documentation"
-    
-    source = android.sourceSets.getByName("main").java.srcDirs
-    classpath += project.files(android.bootClasspath)
+    description = "Generates Javadoc for the project"
+    group = "documentation"
+
+    setDestinationDir(file("../docs"))
+
+    source = android.sourceSets["main"].java.srcDirs("src/main/java").getSourceFiles()
+
+    classpath += files(android.bootClasspath)
+
     android.libraryVariants.forEach { variant ->
         if (variant.name == "release") {
             classpath += variant.javaCompileProvider.get().classpath
         }
     }
-    
+
     options {
         windowTitle = "Telnyx WebRTC Android Library"
         header = "Telnyx WebRTC Android Library"
-        bottom = "Copyright © ${java.time.Year.now()} Telnyx. All rights reserved."
         encoding = "UTF-8"
         memberLevel = JavadocMemberLevel.PUBLIC
     }
-    
-    // Exclude generated files
-    exclude("**/BuildConfig.java", "**/R.java")
-    
-    // Output directory
-    setDestinationDir(file("$buildDir/docs/javadoc"))
+
+    exclude("**/R.java", "**/BuildConfig.java")
+
+    (options as StandardJavadocDocletOptions).apply {
+        encoding = "UTF-8"
+        charSet = "UTF-8"
+        links("https://docs.oracle.com/javase/8/docs/api/")
+        links("https://developer.android.com/reference/")
+    }
+    isFailOnError = false
 }
 
 dependencies {
