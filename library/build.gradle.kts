@@ -150,9 +150,12 @@ tasks.register("prepareManualPublishZip") {
     // dependsOn("signReleasePublication")
 
     doLast {
-        // Create the directory structure
+        // Define artifact coordinates
+        val groupId = "com.telnyx.webrtc.lib"
         val artifactId = "library"
         val version = getVersionName()
+        
+        // Create the directory structure according to Maven Repository Layout
         val publishDir = file("${rootDir}/publish")
         
         // Clean and create directories
@@ -161,29 +164,35 @@ tasks.register("prepareManualPublishZip") {
         }
         publishDir.mkdirs()
         
-        // Define file names
-        val aarName = "${artifactId}-${version}"
-        val pomName = "${aarName}.pom"
-        val javadocName = "${aarName}-javadoc.jar"
-        val sourcesName = "${aarName}-sources.jar"
+        // Create the Maven repository layout directory structure
+        val groupPath = groupId.replace('.', '/')
+        val versionDir = file("${publishDir}/${groupPath}/${artifactId}/${version}")
+        versionDir.mkdirs()
+        
+        // Define file names with full version
+        val aarName = "${artifactId}-${version}.aar"
+        val pomName = "${artifactId}-${version}.pom"
+        val javadocName = "${artifactId}-${version}-javadoc.jar"
+        val sourcesName = "${artifactId}-${version}-sources.jar"
         
         // Print debug information
         println("Preparing Maven Central bundle...")
         println("Build directory: ${buildDir}")
+        println("Maven repository layout: ${groupPath}/${artifactId}/${version}/")
         
         // Copy the AAR file
         val aarFile = file("${buildDir}/outputs/aar/${artifactId}-release.aar")
         if (aarFile.exists()) {
             copy {
                 from(aarFile)
-                into(publishDir)
-                rename { "${aarName}.aar" }
+                into(versionDir)
+                rename { aarName }
             }
             println("Copied AAR file: ${aarFile}")
         } else {
             println("WARNING: AAR file not found at ${aarFile}")
             // Create a dummy AAR file to continue the process
-            file("${publishDir}/${aarName}.aar").writeBytes(byteArrayOf())
+            file("${versionDir}/${aarName}").writeBytes(byteArrayOf())
         }
         
         // Copy the POM file
@@ -191,7 +200,7 @@ tasks.register("prepareManualPublishZip") {
         if (pomFile.exists()) {
             copy {
                 from(pomFile)
-                into(publishDir)
+                into(versionDir)
                 rename { pomName }
             }
             println("Copied POM file: ${pomFile}")
@@ -202,14 +211,14 @@ tasks.register("prepareManualPublishZip") {
                 <?xml version="1.0" encoding="UTF-8"?>
                 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
                   <modelVersion>4.0.0</modelVersion>
-                  <groupId>com.telnyx.webrtc.lib</groupId>
+                  <groupId>${groupId}</groupId>
                   <artifactId>${artifactId}</artifactId>
                   <version>${version}</version>
                   <name>Telnyx WebRTC Android Library</name>
                   <description>Android WebRTC library for Telnyx services</description>
                 </project>
             """.trimIndent()
-            file("${publishDir}/${pomName}").writeText(dummyPom)
+            file("${versionDir}/${pomName}").writeText(dummyPom)
         }
         
         // Copy Javadoc JAR
@@ -217,7 +226,7 @@ tasks.register("prepareManualPublishZip") {
         if (javadocJarFile.exists()) {
             copy {
                 from(javadocJarFile)
-                into(publishDir)
+                into(versionDir)
                 rename { javadocName }
             }
             println("Copied Javadoc JAR: ${javadocJarFile}")
@@ -231,9 +240,9 @@ tasks.register("prepareManualPublishZip") {
             
             // Create a JAR file from the temporary directory
             ant.withGroovyBuilder {
-                "jar"("destfile" to "${publishDir}/${javadocName}", "basedir" to tempDir.absolutePath)
+                "jar"("destfile" to "${versionDir}/${javadocName}", "basedir" to tempDir.absolutePath)
             }
-            println("Created dummy Javadoc JAR: ${publishDir}/${javadocName}")
+            println("Created dummy Javadoc JAR: ${versionDir}/${javadocName}")
         }
         
         // Copy Sources JAR
@@ -241,7 +250,7 @@ tasks.register("prepareManualPublishZip") {
         if (sourcesJarFile.exists()) {
             copy {
                 from(sourcesJarFile)
-                into(publishDir)
+                into(versionDir)
                 rename { sourcesName }
             }
             println("Copied Sources JAR: ${sourcesJarFile}")
@@ -255,17 +264,17 @@ tasks.register("prepareManualPublishZip") {
             
             // Create a JAR file from the temporary directory
             ant.withGroovyBuilder {
-                "jar"("destfile" to "${publishDir}/${sourcesName}", "basedir" to tempDir.absolutePath)
+                "jar"("destfile" to "${versionDir}/${sourcesName}", "basedir" to tempDir.absolutePath)
             }
-            println("Created dummy Sources JAR: ${publishDir}/${sourcesName}")
+            println("Created dummy Sources JAR: ${versionDir}/${sourcesName}")
         }
         
         // List of files that need to be signed and checksummed
         val filesToProcess = listOf(
-            "${publishDir}/${aarName}.aar",
-            "${publishDir}/${pomName}",
-            "${publishDir}/${javadocName}",
-            "${publishDir}/${sourcesName}"
+            "${versionDir}/${aarName}",
+            "${versionDir}/${pomName}",
+            "${versionDir}/${javadocName}",
+            "${versionDir}/${sourcesName}"
         )
         
         // Sign files using GPG and create checksums
@@ -398,8 +407,9 @@ tasks.register("prepareManualPublishZip") {
         
         // Create a zip file with the name com-telnyx-webrtc-lib.zip
         try {
+            // Create the zip file from the publish directory (which contains the Maven repository layout)
             ant.withGroovyBuilder {
-                "zip"("destfile" to "${rootDir}/publish/com-telnyx-webrtc-lib.zip", "basedir" to publishDir, "includes" to "*.aar,*.pom,*.jar,*.asc,*.md5,*.sha1")
+                "zip"("destfile" to "${rootDir}/publish/com-telnyx-webrtc-lib.zip", "basedir" to publishDir)
             }
             println("\nCreated zip file: ${rootDir}/publish/com-telnyx-webrtc-lib.zip")
         } catch (e: Exception) {
@@ -409,6 +419,8 @@ tasks.register("prepareManualPublishZip") {
         // Print summary of files included in the bundle
         println("\n=== Maven Central Bundle Contents ===")
         println("Bundle created at: ${rootDir}/publish/com-telnyx-webrtc-lib.zip")
+        println("\nMaven Repository Layout:")
+        println("${groupPath}/${artifactId}/${version}/")
         println("\nFiles included:")
 
         val fileTypes = mapOf(
@@ -421,7 +433,7 @@ tasks.register("prepareManualPublishZip") {
             ".sha1" to "SHA1 Checksum"
         )
 
-        fileTree(publishDir).forEach { file ->
+        fileTree(versionDir).forEach { file ->
             val fileType = fileTypes.entries.find { file.name.endsWith(it.key) }?.value ?: "Unknown"
             println("- ${file.name} (${fileType})")
         }
@@ -429,7 +441,7 @@ tasks.register("prepareManualPublishZip") {
         println("\nTo publish to Maven Central:")
         println("1. Go to https://central.sonatype.org/")
         println("2. Click on 'Publish Component'")
-        println("3. Enter deployment name: com.telnyx.webrtc.lib:library:${version}")
+        println("3. Enter deployment name: ${groupId}:${artifactId}:${version}")
         println("4. Upload the zip file: ${rootDir}/publish/com-telnyx-webrtc-lib.zip")
     }
 }
