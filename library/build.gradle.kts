@@ -37,33 +37,38 @@ tasks.register<Copy>("buildAarLib") {
 }
 
 // Generate Javadoc
-tasks.register("generateJavadoc", Javadoc::class) {
+tasks.register<Javadoc>("generateJavadoc") {
     description = "Generates Javadoc for the project"
     group = "documentation"
-    
-    // Use a simpler approach for source files
-    source(android.sourceSets.getByName("main").java.srcDirs)
-    
-    classpath += project.files(android.bootClasspath)
+
+    setDestinationDir(file("../docs"))
+
+    source = android.sourceSets["main"].java.srcDirs("src/main/java").getSourceFiles()
+
+    classpath += files(android.bootClasspath)
+
     android.libraryVariants.forEach { variant ->
         if (variant.name == "release") {
             classpath += variant.javaCompileProvider.get().classpath
         }
     }
-    
-    // Exclude generated files
+
+    options {
+        windowTitle = "Telnyx WebRTC Android Library"
+        header = "Telnyx WebRTC Android Library"
+        encoding = "UTF-8"
+        memberLevel = JavadocMemberLevel.PUBLIC
+    }
+
     exclude("**/R.java", "**/BuildConfig.java")
-    
-    // Javadoc options
+
     (options as StandardJavadocDocletOptions).apply {
-        addStringOption("Xdoclint:none", "-quiet")
-        addStringOption("encoding", "UTF-8")
-        addStringOption("charSet", "UTF-8")
+        encoding = "UTF-8"
+        charSet = "UTF-8"
         links("https://docs.oracle.com/javase/8/docs/api/")
         links("https://developer.android.com/reference/")
-        // Set failOnError through options
-        isFailOnError = false
     }
+    isFailOnError = false
 }
 
 // Task to generate Javadoc and sources JARs
@@ -431,6 +436,7 @@ android {
         }
     }
 }
+
 dependencies {
     implementation(libs.appcompat)
     implementation(libs.material)
