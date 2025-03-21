@@ -1,0 +1,13 @@
+# This is a template for local.properties file
+# Copy this file to local.properties and fill in your credentials
+
+# Standard Android SDK location
+sdk.dir=/path/to/your/android/sdk
+
+# Maven Central (Sonatype OSSRH) credentials
+ossrhUsername=your_sonatype_username
+ossrhPassword=your_sonatype_password
+
+# GPG Signing information for Maven Central
+signing.keyId=your_gpg_key_id
+signing.password=your_gpg_key_password
