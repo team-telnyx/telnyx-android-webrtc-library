@@ -97,8 +97,6 @@ public final class WebRtcAudioUtils {
         return "TYPE_BUS";
       case AudioDeviceInfo.TYPE_DOCK:
         return "TYPE_DOCK";
-      case AudioDeviceInfo.TYPE_DOCK_ANALOG:
-        return "TYPE_DOCK_ANALOG";
       case AudioDeviceInfo.TYPE_FM:
         return "TYPE_FM";
       case AudioDeviceInfo.TYPE_FM_TUNER:

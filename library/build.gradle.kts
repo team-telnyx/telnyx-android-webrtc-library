@@ -10,7 +10,7 @@ plugins {
 }
 
 val getVersionName = {
-    "1.0.1"
+    "0.0.9"
 }
 
 // Function to read properties from local.properties file
@@ -403,7 +403,7 @@ tasks.register("prepareManualPublishZip") {
 
 android {
     namespace = "com.telnyx.webrtc.lib"
-    compileSdk = 34
+    compileSdk = 33
 
     lint {
         abortOnError = false
