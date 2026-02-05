@@ -1,0 +1,4 @@
+project:
+  squad: webrtc.squad
+  primary_maintainer: wojciechowskiradek
+  secondary_maintainer: Oliver-Zimmerman
