@@ -1,6 +1,4 @@
 # Telnyx Android WebRTC Library
-[![](https://jitpack.io/v/team-telnyx/telnyx-webrtc-android-library.svg)](https://jitpack.io/#team-telnyx/telnyx-webrtc-android-library)
-
 
 🛰️ Telnyx WebRTC Android is Google's WebRTC pre-compiled library for Android by Telnyx :telephone_receiver: :fire:
 
