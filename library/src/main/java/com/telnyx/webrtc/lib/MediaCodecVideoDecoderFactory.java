@@ -72,11 +72,11 @@ class MediaCodecVideoDecoderFactory implements VideoDecoderFactory {
         String name = type.name();
         if (type == VideoCodecMimeType.H264 && isH264HighProfileSupported(codec)) {
           supportedCodecInfos.add(new VideoCodecInfo(
-              name, MediaCodecUtils.getCodecProperties(type, /* highProfile= */ true)));
+              name, MediaCodecUtils.getCodecProperties(type, /* highProfile= */ true), new ArrayList<>()));
         }
 
         supportedCodecInfos.add(new VideoCodecInfo(
-            name, MediaCodecUtils.getCodecProperties(type, /* highProfile= */ false)));
+            name, MediaCodecUtils.getCodecProperties(type, /* highProfile= */ false), new ArrayList<>()));
       }
     }
 
@@ -84,14 +84,8 @@ class MediaCodecVideoDecoderFactory implements VideoDecoderFactory {
   }
 
   private @Nullable MediaCodecInfo findCodecForType(VideoCodecMimeType type) {
-    for (int i = 0; i < MediaCodecList.getCodecCount(); ++i) {
-      MediaCodecInfo info = null;
-      try {
-        info = MediaCodecList.getCodecInfoAt(i);
-      } catch (IllegalArgumentException e) {
-        Logging.e(TAG, "Cannot retrieve decoder codec info", e);
-      }
-
+    final MediaCodecList mediaCodecList = new MediaCodecList(MediaCodecList.ALL_CODECS);
+    for (MediaCodecInfo info : mediaCodecList.getCodecInfos()) {
       if (info == null || info.isEncoder()) {
         continue;
       }

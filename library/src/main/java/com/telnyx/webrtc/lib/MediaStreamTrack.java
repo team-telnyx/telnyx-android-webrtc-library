@@ -28,7 +28,7 @@ public class MediaStreamTrack {
     }
   }
 
-  // Must be kept in sync with cricket::MediaType.
+  // Must be kept in sync with webrtc::MediaType.
   public enum MediaType {
     MEDIA_TYPE_AUDIO(0),
     MEDIA_TYPE_VIDEO(1);
@@ -119,6 +119,10 @@ public class MediaStreamTrack {
     if (nativeTrack == 0) {
       throw new IllegalStateException("MediaStreamTrack has been disposed.");
     }
+  }
+
+  public boolean isDisposed() {
+    return nativeTrack == 0;
   }
 
   private static native String nativeGetId(long track);
