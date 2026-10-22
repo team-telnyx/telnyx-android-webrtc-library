@@ -414,6 +414,11 @@ android {
         version = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Keep rules for consumer apps with R8/minification: the bundled
+        // .so files reference org.jni_zero classes that have no Java call
+        // sites (see consumer-rules.pro).
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {

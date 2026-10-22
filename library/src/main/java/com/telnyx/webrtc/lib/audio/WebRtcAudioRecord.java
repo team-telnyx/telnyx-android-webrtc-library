@@ -37,6 +37,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 import com.telnyx.webrtc.lib.CalledByNative;
 import com.telnyx.webrtc.lib.Logging;
 import com.telnyx.webrtc.lib.ThreadUtils;
@@ -51,6 +52,8 @@ class WebRtcAudioRecord {
 
   // Requested size of each recorded buffer provided to the client.
   private static final int CALLBACK_BUFFER_SIZE_MS = 10;
+
+  private static final long NANOS_PER_MS = 1_000_000L;
 
   // Average number of callbacks per second.
   private static final int BUFFERS_PER_SECOND = 1000 / CALLBACK_BUFFER_SIZE_MS;
@@ -289,8 +292,20 @@ class WebRtcAudioRecord {
             continue;
           }
         } else {
+          // Recordingless mode (setUseAudioRecord(false)) or a failed
+          // recorder init: without a blocking AudioRecord.read() to clock
+          // the loop, park to the next callback-interval deadline so the
+          // synthetic buffers below keep a real-time cadence instead of
+          // spinning at urgent-audio thread priority.
+          long parkNs = silenceLoopParkNanos(lastTime, System.nanoTime());
+          if (parkNs > 0) {
+            LockSupport.parkNanos(parkNs);
+          }
+          // Deliver a full buffer of silence: callbacks and native delivery
+          // expect the same buffer size a real recorder would produce.
           byteBuffer.clear();
           byteBuffer.put(emptyBytes);
+          bytesRead = byteBuffer.capacity();
         }
 
         if (keepAlive && audioBufferCallback != null) {
@@ -313,6 +328,9 @@ class WebRtcAudioRecord {
           audioSamplesReadyCallback.onWebRtcAudioRecordSamplesReady(
               new JavaAudioDeviceModule.AudioSamples(audioFormat, channelCount, sampleRate, data));
         }
+
+        // Tick anchor for the recordingless pacing; see silenceLoopParkNanos().
+        lastTime = System.nanoTime();
       }
 
       // Stop only the record this thread was reading. The shared field may
@@ -1058,6 +1076,21 @@ class WebRtcAudioRecord {
 
   private static int getBytesPerFrame(int channels, int audioFormat) {
     return channels * getBytesPerSample(audioFormat);
+  }
+
+  /**
+   * Nanoseconds for the recordingless branch of AudioRecordThread to park
+   * until the next CALLBACK_BUFFER_SIZE_MS deadline. With no blocking
+   * AudioRecord.read() available, this paces synthetic-silence buffers at
+   * the cadence a real recorder enforces instead of letting the loop spin
+   * at urgent-audio thread priority. Clamped to [0, one interval]: an
+   * iteration that already ran long never sleeps further, and the cadence
+   * cannot accumulate debt and burst. Visible for tests.
+   */
+  static long silenceLoopParkNanos(long lastTickNs, long nowNs) {
+    long intervalNs = CALLBACK_BUFFER_SIZE_MS * NANOS_PER_MS;
+    long parkNs = lastTickNs + intervalNs - nowNs;
+    return Math.min(Math.max(parkNs, 0L), intervalNs);
   }
 
   private static int getFramesPerBuffer(int sampleRate) {

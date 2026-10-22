@@ -88,9 +88,11 @@ public class FrameCryptor {
     long newPtr = nativeSetObserver(nativeFrameCryptor, observer);
     if (observerPtr != 0) {
       JniCommon.nativeReleaseRef(observerPtr);
-      observerPtr = 0;
     }
-    newPtr = observerPtr;
+    // Retain the new native observer reference so a later replacement or
+    // dispose() can release it. (Assigning to newPtr instead kept observerPtr
+    // at zero and leaked every registered observer.)
+    observerPtr = newPtr;
   }
 
   private void checkFrameCryptorExists() {
