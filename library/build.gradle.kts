@@ -10,7 +10,7 @@ plugins {
 }
 
 val getVersionName = {
-    "1.0.1"
+    "1.1.0"
 }
 
 // Function to read properties from local.properties file
@@ -426,8 +426,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
     sourceSets {
