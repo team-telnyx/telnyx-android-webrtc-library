@@ -10,7 +10,7 @@ This is a pre-compiled version of Google's WebRTC library for Android, maintaine
 
 For more detailed information about this library, please refer to our official documentation at [Telnyx Precompiled WebRTC Library Documentation](https://developers.telnyx.com/docs/voice/webrtc/android-sdk/precompiled-library).
 
-For more information about WebRTC for Android, you can also refer to the [WebRTC-Android documentation](https://getstream.github.io/webrtc-android/).
+For more information about WebRTC for Android, you can also refer to the [WebRTC Official Documentation](https://webrtc.org/getting-started/overview).
 
 ## What this library is NOT
 
