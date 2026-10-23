@@ -15,7 +15,6 @@ import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import androidx.annotation.Nullable;
 import java.nio.ByteBuffer;
-import com.telnyx.webrtc.lib.VideoFrameBufferType;
 
 /**
  * Java version of webrtc::VideoFrame and webrtc::VideoFrameBuffer. A difference from the C++

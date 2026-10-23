@@ -10,7 +10,7 @@ plugins {
 }
 
 val getVersionName = {
-    "1.0.1"
+    "1.1.0"
 }
 
 // Function to read properties from local.properties file
@@ -414,6 +414,11 @@ android {
         version = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Keep rules for consumer apps with R8/minification: the bundled
+        // .so files reference org.jni_zero classes that have no Java call
+        // sites (see consumer-rules.pro).
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
@@ -426,8 +431,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
     sourceSets {

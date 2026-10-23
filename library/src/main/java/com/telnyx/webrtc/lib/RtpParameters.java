@@ -27,15 +27,23 @@ import com.telnyx.webrtc.lib.MediaStreamTrack;
  * default value".
  */
 public class RtpParameters {
+  /** Java version of webrtc::DegradationPreference - the ordering must be kept in sync. */
   public enum DegradationPreference {
-    /** Does not degrade resolution or framerate. */
-    DISABLED,
+    /**
+    * Maintain framerate and resolution regardless of video quality. Frames may be dropped
+    * before encoding if necessary not to overuse network and encoder resources.
+    */
+    MAINTAIN_FRAMERATE_AND_RESOLUTION,
     /** Degrade resolution in order to maintain framerate. */
     MAINTAIN_FRAMERATE,
     /** Degrade framerate in order to maintain resolution. */
     MAINTAIN_RESOLUTION,
     /** Degrade a balance of framerate and resolution. */
-    BALANCED;
+    BALANCED,
+    // TODO(webrtc:450044904): Switch downstream projects to MAINTAIN_FRAMERATE_AND_RESOLUTION
+    // and remove DISABLED.
+    /** Does not degrade resolution or framerate. */
+    DISABLED;
 
     @CalledByNative("DegradationPreference")
     static DegradationPreference fromNativeIndex(int nativeIndex) {
@@ -76,6 +84,8 @@ public class RtpParameters {
     // If non-null, scale the width and height down by this factor for video. If null,
     // implementation default scaling factor will be used.
     @Nullable public Double scaleResolutionDownBy;
+    // Scalability modes are used to represent simulcast and SVC layers.
+    @Nullable public String scalabilityMode;
     // SSRC to be used by this encoding.
     // Can't be changed between getParameters/setParameters.
     public Long ssrc;
@@ -93,8 +103,8 @@ public class RtpParameters {
     @CalledByNative("Encoding")
     Encoding(String rid, boolean active, double bitratePriority, @Priority int networkPriority,
         Integer maxBitrateBps, Integer minBitrateBps, Integer maxFramerate,
-        Integer numTemporalLayers, Double scaleResolutionDownBy, Long ssrc,
-        boolean adaptiveAudioPacketTime) {
+        Integer numTemporalLayers, Double scaleResolutionDownBy, String scalabilityMode,
+        Long ssrc, boolean adaptiveAudioPacketTime) {
       this.rid = rid;
       this.active = active;
       this.bitratePriority = bitratePriority;
@@ -104,6 +114,7 @@ public class RtpParameters {
       this.maxFramerate = maxFramerate;
       this.numTemporalLayers = numTemporalLayers;
       this.scaleResolutionDownBy = scaleResolutionDownBy;
+      this.scalabilityMode = scalabilityMode;
       this.ssrc = ssrc;
       this.adaptiveAudioPacketTime = adaptiveAudioPacketTime;
     }
@@ -158,6 +169,12 @@ public class RtpParameters {
     @CalledByNative("Encoding")
     Double getScaleResolutionDownBy() {
       return scaleResolutionDownBy;
+    }
+
+    @Nullable
+    @CalledByNative("Encoding")
+    String getScalabilityMode() {
+      return scalabilityMode;
     }
 
     @CalledByNative("Encoding")

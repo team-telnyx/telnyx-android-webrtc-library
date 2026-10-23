@@ -15,11 +15,10 @@ import android.os.Process;
 import androidx.annotation.Nullable;
 import java.util.List;
 import com.telnyx.webrtc.lib.Logging.Severity;
-import com.telnyx.webrtc.lib.MediaStreamTrack;
-import com.telnyx.webrtc.lib.PeerConnection;
-import com.telnyx.webrtc.lib.RtpCapabilities;
 import com.telnyx.webrtc.lib.audio.AudioDeviceModule;
+import com.telnyx.webrtc.lib.audio.AudioProcessingState;
 import com.telnyx.webrtc.lib.audio.JavaAudioDeviceModule;
+import com.telnyx.webrtc.lib.RtpCapabilities;
 
 /**
  * Java wrapper for a C++ PeerConnectionFactoryInterface.  Main entry point to
@@ -58,6 +57,7 @@ public class PeerConnectionFactory {
   @Nullable private volatile ThreadInfo networkThread;
   @Nullable private volatile ThreadInfo workerThread;
   @Nullable private volatile ThreadInfo signalingThread;
+  @Nullable private AudioTrack.AudioProcessingPlatformPolicy audioProcessingPlatformPolicy;
 
   public static class InitializationOptions {
     final Context applicationContext;
@@ -98,6 +98,9 @@ public class PeerConnectionFactory {
         this.applicationContext = applicationContext;
       }
 
+      // Deprecated, use PeerConnectionFactory.Builder.setFieldTrials instead.
+      // TODO: bugs.webrtc.org/42220378 - Delete after January 1, 2026.
+      @Deprecated
       public Builder setFieldTrials(String fieldTrials) {
         this.fieldTrials = fieldTrials;
         return this;
@@ -166,6 +169,7 @@ public class PeerConnectionFactory {
 
   public static class Builder {
     @Nullable private Options options;
+    private final Environment.Builder envBuilder = Environment.builder();
     @Nullable private AudioDeviceModule audioDeviceModule;
     private AudioEncoderFactoryFactory audioEncoderFactoryFactory =
         new BuiltinAudioEncoderFactoryFactory();
@@ -178,11 +182,17 @@ public class PeerConnectionFactory {
     @Nullable private NetworkControllerFactoryFactory networkControllerFactoryFactory;
     @Nullable private NetworkStatePredictorFactoryFactory networkStatePredictorFactoryFactory;
     @Nullable private NetEqFactoryFactory neteqFactoryFactory;
+    @Nullable private AudioFrameProcessor audioFrameProcessor;
 
     private Builder() {}
 
     public Builder setOptions(Options options) {
       this.options = options;
+      return this;
+    }
+
+    public Builder setFieldTrials(String fieldTrials) {
+      envBuilder.setFieldTrials(fieldTrials);
       return this;
     }
 
@@ -259,26 +269,50 @@ public class PeerConnectionFactory {
       return this;
     }
 
+    /**
+     * Sets an AudioFrameProcessor for the PeerConnectionFactory.
+     *
+     * <p>This is used to process audio frames before they are sent to the audio device module.
+     */
+    public Builder setAudioFrameProcessor(AudioFrameProcessor audioFrameProcessor) {
+      this.audioFrameProcessor = audioFrameProcessor;
+      return this;
+    }
+
     public PeerConnectionFactory createPeerConnectionFactory() {
       checkInitializeHasBeenCalled();
-      if (audioDeviceModule == null) {
-        audioDeviceModule = JavaAudioDeviceModule.builder(ContextUtils.getApplicationContext())
-                                .createAudioDeviceModule();
+      try (Environment env = envBuilder.build()) {
+        if (audioDeviceModule == null) {
+          audioDeviceModule = JavaAudioDeviceModule.builder(ContextUtils.getApplicationContext())
+                                  .createAudioDeviceModule();
+        }
+        AudioDeviceModule adm = audioDeviceModule;
+        PeerConnectionFactory factory = nativeCreatePeerConnectionFactory(
+            ContextUtils.getApplicationContext(),
+            options,
+            env.ref(),
+            adm.getNative(env.ref()),
+            audioEncoderFactoryFactory.createNativeAudioEncoderFactory(),
+            audioDecoderFactoryFactory.createNativeAudioDecoderFactory(),
+            videoEncoderFactory,
+            videoDecoderFactory,
+            audioProcessingFactory == null ? 0 : audioProcessingFactory.createNative(env.ref()),
+            fecControllerFactoryFactory == null ? 0 : fecControllerFactoryFactory.createNative(),
+            networkControllerFactoryFactory == null
+                ? 0
+                : networkControllerFactoryFactory.createNativeNetworkControllerFactory(),
+            networkStatePredictorFactoryFactory == null
+                ? 0
+                : networkStatePredictorFactoryFactory.createNativeNetworkStatePredictorFactory(),
+            neteqFactoryFactory == null ? 0 : neteqFactoryFactory.createNativeNetEqFactory(),
+            audioFrameProcessor == null ? 0 : audioFrameProcessor.getNativeAudioFrameProcessor());
+        if (adm instanceof JavaAudioDeviceModule) {
+          factory.audioProcessingPlatformPolicy =
+              AudioTrack.AudioProcessingPlatformPolicy.fromJavaAudioDeviceModule(
+                  (JavaAudioDeviceModule) adm);
+        }
+        return factory;
       }
-      return nativeCreatePeerConnectionFactory(ContextUtils.getApplicationContext(), options,
-          audioDeviceModule.getNativeAudioDeviceModulePointer(),
-          audioEncoderFactoryFactory.createNativeAudioEncoderFactory(),
-          audioDecoderFactoryFactory.createNativeAudioDecoderFactory(), videoEncoderFactory,
-          videoDecoderFactory,
-          audioProcessingFactory == null ? 0 : audioProcessingFactory.createNative(),
-          fecControllerFactoryFactory == null ? 0 : fecControllerFactoryFactory.createNative(),
-          networkControllerFactoryFactory == null
-              ? 0
-              : networkControllerFactoryFactory.createNativeNetworkControllerFactory(),
-          networkStatePredictorFactoryFactory == null
-              ? 0
-              : networkStatePredictorFactoryFactory.createNativeNetworkStatePredictorFactory(),
-          neteqFactoryFactory == null ? 0 : neteqFactoryFactory.createNativeNetEqFactory());
     }
   }
 
@@ -332,22 +366,13 @@ public class PeerConnectionFactory {
 
   // Field trial initialization. Must be called before PeerConnectionFactory
   // is created.
-  // Deprecated, use PeerConnectionFactory.initialize instead.
+  // Deprecated, use PeerConnectionFactory.Builder.setFieldTrials instead.
+  // TODO: bugs.webrtc.org/42220378 - Delete after January 1, 2026.
   @Deprecated
   public static void initializeFieldTrials(String fieldTrialsInitString) {
     nativeInitializeFieldTrials(fieldTrialsInitString);
   }
 
-  // Wrapper of webrtc::field_trial::FindFullName. Develop the feature with default behaviour off.
-  // Example usage:
-  // if (PeerConnectionFactory.fieldTrialsFindFullName("WebRTCExperiment").equals("Enabled")) {
-  //   method1();
-  // } else {
-  //   method2();
-  // }
-  public static String fieldTrialsFindFullName(String name) {
-    return NativeLibrary.isLoaded() ? nativeFindFieldTrialsFullName(name) : "";
-  }
   // Start/stop internal capturing of internal tracing.
   public static boolean startInternalTracingCapture(String tracingFilename) {
     return nativeStartInternalTracingCapture(tracingFilename);
@@ -439,10 +464,10 @@ public class PeerConnectionFactory {
 
   /**
    * Create video source with given parameters. If alignTimestamps is false, the caller is
-   * responsible for aligning the frame timestamps to rtc::TimeNanos(). This can be used to achieve
+   * responsible for aligning the frame timestamps to webrtc::TimeNanos(). This can be used to achieve
    * higher accuracy if there is a big delay between frame creation and frames being delivered to
    * the returned video source. If alignTimestamps is true, timestamps will be aligned to
-   * rtc::TimeNanos() when they arrive to the returned video source.
+   * webrtc::TimeNanos() when they arrive to the returned video source.
    */
   public VideoSource createVideoSource(boolean isScreencast, boolean alignTimestamps) {
     checkPeerConnectionFactoryExists();
@@ -471,7 +496,9 @@ public class PeerConnectionFactory {
 
   public AudioTrack createAudioTrack(String id, AudioSource source) {
     checkPeerConnectionFactoryExists();
-    return new AudioTrack(nativeCreateAudioTrack(nativeFactory, id, source.getNativeAudioSource()));
+    return new AudioTrack(
+        nativeCreateAudioTrack(nativeFactory, id, source.getNativeAudioSource()),
+        audioProcessingPlatformPolicy);
   }
 
   public RtpCapabilities getRtpReceiverCapabilities(MediaStreamTrack.MediaType mediaType) {
@@ -497,6 +524,18 @@ public class PeerConnectionFactory {
   public void stopAecDump() {
     checkPeerConnectionFactoryExists();
     nativeStopAecDump(nativeFactory);
+  }
+
+  /**
+   * Diagnostic snapshot of the shared audio processing module's state: per
+   * component, what was requested, what the resolver decided per path, and
+   * what is actually running. The module is owned by this factory and shared
+   * across every peer connection it creates, so this reflects the
+   * factory-scoped processing state.
+   */
+  public AudioProcessingState getAudioProcessingState() {
+    checkPeerConnectionFactoryExists();
+    return nativeGetAudioProcessingState(nativeFactory);
   }
 
   public void dispose() {
@@ -595,7 +634,6 @@ public class PeerConnectionFactory {
   // (for example, at application startup time).
   private static native void nativeInitializeAndroidGlobals();
   private static native void nativeInitializeFieldTrials(String fieldTrialsInitString);
-  private static native String nativeFindFieldTrialsFullName(String name);
   private static native void nativeInitializeInternalTracer();
   // Internal tracing shutdown, called to prevent resource leaks. Must be called after
   // PeerConnectionFactory is gone to prevent races with code performing tracing.
@@ -604,11 +642,11 @@ public class PeerConnectionFactory {
   private static native void nativeStopInternalTracingCapture();
 
   private static native PeerConnectionFactory nativeCreatePeerConnectionFactory(Context context,
-      Options options, long nativeAudioDeviceModule, long audioEncoderFactory,
+      Options options, long webrtcEnvRef, long nativeAudioDeviceModule, long audioEncoderFactory,
       long audioDecoderFactory, VideoEncoderFactory encoderFactory,
       VideoDecoderFactory decoderFactory, long nativeAudioProcessor,
       long nativeFecControllerFactory, long nativeNetworkControllerFactory,
-      long nativeNetworkStatePredictorFactory, long neteqFactory);
+      long nativeNetworkStatePredictorFactory, long neteqFactory, long nativeAudioFrameProcessor);
 
   private static native long nativeCreatePeerConnection(long factory,
       PeerConnection.RTCConfiguration rtcConfig, MediaConstraints constraints, long nativeObserver,
@@ -623,6 +661,7 @@ public class PeerConnectionFactory {
   private static native boolean nativeStartAecDump(
       long factory, int file_descriptor, int filesize_limit_bytes);
   private static native void nativeStopAecDump(long factory);
+  private static native AudioProcessingState nativeGetAudioProcessingState(long factory);
   private static native void nativeFreeFactory(long factory);
   private static native long nativeGetNativePeerConnectionFactory(long factory);
   private static native void nativeInjectLoggable(JNILogging jniLogging, int severity);

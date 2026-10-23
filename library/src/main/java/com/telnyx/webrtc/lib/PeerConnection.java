@@ -419,7 +419,7 @@ public class PeerConnection {
     }
   }
 
-  /** Java version of rtc::KeyType */
+  /** Java version of webrtc::KeyType */
   public enum KeyType { RSA, ECDSA }
 
   /** Java version of PeerConnectionInterface.ContinualGatheringPolicy */
@@ -548,10 +548,6 @@ public class PeerConnection {
     // This is an optional wrapper for the C++ webrtc::TurnCustomizer.
     @Nullable public TurnCustomizer turnCustomizer;
 
-    // Actively reset the SRTP parameters whenever the DTLS transports underneath are reset for
-    // every offer/answer negotiation.This is only intended to be a workaround for crbug.com/835958
-    public boolean activeResetSrtpParams;
-
     /**
      * Defines advanced optional cryptographic settings related to SRTP and
      * frame encryption for native WebRTC. Setting this will overwrite any
@@ -578,6 +574,21 @@ public class PeerConnection {
      * See: https://www.chromestatus.com/feature/6269234631933952
      */
     public boolean offerExtmapAllowMixed;
+    
+    /**
+     * When this flag is set, ports not bound to any specific network interface
+     * will be used, in addition to normal ports bound to the enumerated
+     * interfaces. Without this flag, these "any address" ports would only be
+     * used when network enumeration fails or is disabled. But under certain
+     * conditions, these ports may succeed where others fail, so they may allow
+     * the application to work in a wider variety of environments, at the expense
+     * of having to allocate additional candidates.
+     */
+    public boolean enableIceGatheringOnAnyAddressPorts;
+
+    /** Limit ports used for connections. */
+    public int portAllocatorMinPort;
+    public int portAllocatorMaxPort;
 
     /** Control port allocation, including what kinds of ports are allocated. */
     @PortAllocatorFlags public int portAllocatorFlags;
@@ -618,12 +629,14 @@ public class PeerConnection {
       screencastMinBitrate = null;
       networkPreference = AdapterType.UNKNOWN;
       sdpSemantics = SdpSemantics.UNIFIED_PLAN;
-      activeResetSrtpParams = false;
       cryptoOptions = null;
       turnLoggingId = null;
       enableImplicitRollback = false;
       offerExtmapAllowMixed = true;
+      portAllocatorMinPort = 0;
+      portAllocatorMaxPort = 0;
       portAllocatorFlags = 0;
+      enableIceGatheringOnAnyAddressPorts = false;
     }
 
     @CalledByNative("RTCConfiguration")
@@ -806,11 +819,6 @@ public class PeerConnection {
       return sdpSemantics;
     }
 
-    @CalledByNative("RTCConfiguration")
-    boolean getActiveResetSrtpParams() {
-      return activeResetSrtpParams;
-    }
-
     @Nullable
     @CalledByNative("RTCConfiguration")
     CryptoOptions getCryptoOptions() {
@@ -834,9 +842,24 @@ public class PeerConnection {
     }
 
     @CalledByNative("RTCConfiguration")
+    int getPortAllocatorMinPort() {
+      return portAllocatorMinPort;
+    }
+
+    @CalledByNative("RTCConfiguration")
+    int getPortAllocatorMaxPort() {
+      return portAllocatorMaxPort;
+    }
+
+    @CalledByNative("RTCConfiguration")
     @PortAllocatorFlags
     int getPortAllocatorFlags() {
       return portAllocatorFlags;
+    }
+
+    @CalledByNative("RTCConfiguration")
+    boolean getEnableIceGatheringOnAnyAddressPorts() {
+      return enableIceGatheringOnAnyAddressPorts;
     }
   };
 
